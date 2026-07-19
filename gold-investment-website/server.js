@@ -239,6 +239,7 @@ async function accountView(customer) {
   const currentValue = Math.round(totalGrams * rate);
   const firstPurchase = customer.purchases[0];
   const redeemableFrom = firstPurchase ? addMonths(firstPurchase.date, config.lockInMonths) : null;
+  const matured = Boolean(redeemableFrom && Date.now() >= new Date(redeemableFrom).getTime());
   return {
     accountId: customer.accountId,
     name: customer.name,
@@ -267,11 +268,22 @@ async function accountView(customer) {
     scheme: {
       lockInMonths: config.lockInMonths,
       redeemableFrom,
+      matured,
       redemption: "Gold coins (1% making charge) or cash withdrawal of equivalent value",
       makingChargePercent: config.makingChargePercent,
       estimatedMakingCharge: Math.round((currentValue * config.makingChargePercent) / 100),
       cashWithdrawalValue: currentValue,
     },
+    redemptions: (customer.redemptions || []).map((r) => ({
+      date: r.date,
+      mode: r.mode,
+      grams: r.grams,
+      ratePerGram: r.ratePerGram,
+      grossValue: r.grossValue,
+      makingCharge: r.makingCharge,
+      netPayout: r.netPayout,
+      status: r.status,
+    })),
     todayRatePerGram: rate,
     rateSource,
     rateAsOf,
@@ -434,6 +446,57 @@ app.post("/api/purchase", requireAuth, async (req, res) => {
     message: `Purchase recorded — total payable ₹${(amount + gst).toLocaleString("en-IN")} (incl. ${config.gstPercent}% GST). Our team will contact you to collect payment and confirm the credit.`,
     account: await accountView(customer),
   });
+});
+
+// ── Scheme closure: withdraw cash or take gold coins after the lock-in ───────
+app.post("/api/redeem", requireAuth, async (req, res) => {
+  const mode = req.body?.mode;
+  if (mode !== "cash" && mode !== "coins") {
+    return res.status(400).json({ error: "Choose how to redeem: cash or coins" });
+  }
+
+  const config = loadConfig();
+  const customers = loadCustomers();
+  const customer = customers.find((c) => c.accountId === req.customer.accountId);
+
+  if (!customer.purchases.length) {
+    return res.status(400).json({ error: "You have no active holdings to redeem" });
+  }
+
+  const redeemableFrom = new Date(addMonths(customer.purchases[0].date, config.lockInMonths));
+  if (Date.now() < redeemableFrom.getTime()) {
+    const from = redeemableFrom.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    return res.status(400).json({ error: `Your scheme matures on ${from} — redemption opens then` });
+  }
+
+  const { ratePerGram: rate } = await getRate();
+  const grams = Number(customer.purchases.reduce((s, p) => s + p.grams, 0).toFixed(4));
+  const grossValue = Math.round(grams * rate);
+  const makingCharge = mode === "coins" ? Math.round((grossValue * config.makingChargePercent) / 100) : 0;
+  const netPayout = mode === "cash" ? grossValue : 0;
+
+  customer.redemptions = customer.redemptions || [];
+  customer.redemptions.push({
+    id: "RED-" + crypto.randomBytes(4).toString("hex").toUpperCase(),
+    date: new Date().toISOString(),
+    mode,
+    grams,
+    ratePerGram: rate,
+    grossValue,
+    makingCharge,
+    netPayout,
+    status: "processing",
+    purchases: customer.purchases,
+  });
+  customer.purchases = [];
+  saveCustomers(customers);
+
+  const message =
+    mode === "cash"
+      ? `Withdrawal recorded — ₹${grossValue.toLocaleString("en-IN")} for ${grams} g at ₹${rate.toLocaleString("en-IN")}/g. Our team will transfer the amount to your registered account within 2 working days.`
+      : `Coin redemption recorded — ${grams} g of gold coins at today's ₹${rate.toLocaleString("en-IN")}/g. A making charge of ₹${makingCharge.toLocaleString("en-IN")} (${config.makingChargePercent}%) is payable on collection. Our team will contact you for handover.`;
+
+  res.json({ message, account: await accountView(customer) });
 });
 
 // ── Admin: full customer list (requires ADMIN_KEY env var) ───────────────────

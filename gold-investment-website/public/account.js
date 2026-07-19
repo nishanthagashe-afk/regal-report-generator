@@ -189,6 +189,48 @@
       ? `${scheme.lockInMonths}-month scheme · redeemable from ${from} as gold coins (${scheme.makingChargePercent}% making charge, ≈ ${money(scheme.estimatedMakingCharge)} today) — or withdraw the equivalent value in money instead.`
       : `${scheme.lockInMonths}-month scheme · redemption opens ${scheme.lockInMonths} months after your first purchase — gold coins (${scheme.makingChargePercent}% making charge) or withdraw the equivalent value in money.`;
 
+    // Redeem & withdraw panel
+    const redeemStatus = document.getElementById("redeemStatus");
+    const redeemActions = document.getElementById("redeemActions");
+    if (!acc.purchases.length) {
+      redeemStatus.textContent = "No active holdings. Buy gold to start a new scheme cycle.";
+      redeemActions.hidden = true;
+    } else if (scheme.matured) {
+      redeemStatus.textContent = "Your scheme has matured — choose how to redeem:";
+      document.getElementById("redeemPreview").textContent =
+        `Withdraw ${money(scheme.cashWithdrawalValue)} in cash · or take ${acc.totals.grams} g in gold coins (making charge ≈ ${money(scheme.estimatedMakingCharge)})`;
+      redeemActions.hidden = false;
+    } else {
+      redeemStatus.textContent = from
+        ? `Locked until ${from}. After that date you can withdraw the full value in cash or take gold coins.`
+        : "Redemption opens 11 months after your first purchase.";
+      redeemActions.hidden = true;
+    }
+
+    // Redemption history
+    const redRows = document.getElementById("redemptionRows");
+    redRows.innerHTML = "";
+    const redemptions = (acc.redemptions || []).slice().reverse();
+    redemptions.forEach((r) => {
+      const tr = document.createElement("tr");
+      const date = new Date(r.date).toLocaleDateString("en-IN", {
+        day: "2-digit", month: "short", year: "numeric",
+      });
+      const value = r.mode === "cash"
+        ? money(r.netPayout)
+        : `${money(r.grossValue)} − ${money(r.makingCharge)} MC`;
+      [date, r.mode === "cash" ? "Cash withdrawal" : "Gold coins", r.grams + " g", money(r.ratePerGram), value, r.status]
+        .forEach((v, i) => {
+          const td = document.createElement("td");
+          td.textContent = v;
+          if (i >= 2 && i <= 4) td.className = "num";
+          tr.appendChild(td);
+        });
+      redRows.appendChild(tr);
+    });
+    document.getElementById("noRedemptions").hidden = redemptions.length > 0;
+    document.getElementById("redemptionWrap").hidden = redemptions.length === 0;
+
     const rows = document.getElementById("purchaseRows");
     rows.innerHTML = "";
     const list = acc.purchases.slice().reverse();
@@ -256,6 +298,34 @@
       setError("buyError", err.message);
     }
   });
+
+  // ── Redeem / withdraw ──────────────────────────────────────────────────────
+  async function redeem(mode) {
+    setError("redeemError", null);
+    document.getElementById("redeemSuccess").hidden = true;
+
+    const label = mode === "cash"
+      ? "withdraw your full balance in cash"
+      : "redeem your full balance as gold coins (1% making charge applies)";
+    if (!window.confirm(`This will close your current scheme cycle and ${label}. Continue?`)) return;
+
+    try {
+      const data = await api("/api/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      renderAccount(data.account);
+      const success = document.getElementById("redeemSuccess");
+      success.textContent = data.message;
+      success.hidden = false;
+    } catch (err) {
+      setError("redeemError", err.message);
+    }
+  }
+
+  document.getElementById("withdrawBtn").addEventListener("click", () => redeem("cash"));
+  document.getElementById("coinsBtn").addEventListener("click", () => redeem("coins"));
 
   // ── Init ───────────────────────────────────────────────────────────────────
   loadConfig();

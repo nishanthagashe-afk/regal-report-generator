@@ -37,6 +37,12 @@
   </div>
 </div>
 
+<section class="hero-mini coin-rain">
+  <div class="container">
+    <h1>My Account</h1>
+  </div>
+</section>
+
 <!-- ── Login ───────────────────────────────────────────────────────────── -->
 <section id="loginView" class="section" hidden>
   <div class="container">
@@ -178,6 +184,35 @@
         <p id="noPurchases" class="dash-note" hidden>No purchases yet — your first gram is a click away.</p>
       </div>
     </div>
+
+    <div class="dash-columns">
+      <div class="dash-panel">
+        <h3>Redeem &amp; withdraw</h3>
+        <p class="dash-note" id="redeemStatus"></p>
+        <div id="redeemActions" hidden>
+          <p class="buy-preview" id="redeemPreview"></p>
+          <div class="hero-cta">
+            <button id="withdrawBtn" class="btn btn-primary">Withdraw cash</button>
+            <button id="coinsBtn" class="btn btn-ghost-dark">Take gold coins</button>
+          </div>
+        </div>
+        <p id="redeemError" class="form-error" hidden></p>
+        <div id="redeemSuccess" class="form-success" hidden></div>
+      </div>
+
+      <div class="dash-panel">
+        <h3>Redemption history</h3>
+        <div class="table-wrap" id="redemptionWrap">
+          <table class="purchase-table">
+            <thead>
+              <tr><th>Date</th><th>Mode</th><th>Gold</th><th>Rate (₹/g)</th><th>Value</th><th>Status</th></tr>
+            </thead>
+            <tbody id="redemptionRows"></tbody>
+          </table>
+        </div>
+        <p id="noRedemptions" class="dash-note" hidden>No redemptions yet.</p>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -188,5 +223,6 @@
 </footer>
 
 <script src="account.js"></script>
+<script src="coins.js"></script>
 </body>
 </html>

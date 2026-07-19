@@ -149,6 +149,26 @@ h1, h2, h3, h4 { font-family: Georgia, "Times New Roman", serif; margin: 0 0 12p
 }
 .btn-ghost:hover { border-color: var(--gold-light); color: var(--gold-light); }
 
+/* Falling gold coins background */
+.coin-rain { position: relative; overflow: hidden; }
+.coin-rain-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.coin-rain > .container { position: relative; z-index: 1; }
+
+.hero-mini {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(233, 209, 140, 0.25), transparent 45%),
+    linear-gradient(160deg, var(--ink) 0%, var(--ink-soft) 100%);
+  color: var(--cream);
+  padding: 44px 0;
+}
+.hero-mini h1 { font-size: 30px; margin: 0; }
+
 /* Rate ticker */
 .rate-ticker {
   background: var(--gold-dark);
@@ -443,6 +463,7 @@ input[type="file"] {
   grid-template-columns: minmax(260px, 1fr) minmax(300px, 1.4fr);
   gap: 24px;
 }
+.dash-columns + .dash-columns { margin-top: 24px; }
 @media (max-width: 860px) {
   .dash-columns { grid-template-columns: 1fr; }
 }
