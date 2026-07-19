@@ -21,9 +21,11 @@ const CONFIG_PATH = path.join(DATA_DIR, "config.json");
 const CUSTOMERS_PATH = path.join(DATA_DIR, "customers.json");
 const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
 const RECEIPTS_DIR = path.join(DATA_DIR, "receipts");
+const INVOICES_DIR = path.join(DATA_DIR, "invoices");
 
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(RECEIPTS_DIR, { recursive: true });
+fs.mkdirSync(INVOICES_DIR, { recursive: true });
 
 // Tokens are signed with this secret; set SESSION_SECRET in production so
 // logins survive restarts.
@@ -343,6 +345,7 @@ async function accountView(customer) {
       cashWithdrawalValue: currentValue,
     },
     redemptions: (customer.redemptions || []).map((r) => ({
+      id: r.id,
       date: r.date,
       mode: r.mode,
       grams: r.grams,
@@ -450,6 +453,129 @@ function generateReceiptPdf(customer, purchase, runningTotals, config) {
     // Footer
     doc.fillColor(muted).font("Helvetica-Oblique").fontSize(8.5).text(
       "This is a computer-generated receipt and does not require a signature.",
+      left, doc.page.height - 70, { align: "center", width: right - left }
+    );
+
+    doc.end();
+    stream.on("finish", () => resolve(filePath));
+    stream.on("error", reject);
+  });
+}
+
+// ── Redemption invoice ───────────────────────────────────────────────────────
+// Accumulated grams × gold rate on the redemption date, plus the 1% making
+// charge only when gold coins are taken. No fresh GST: it was already paid on
+// each scheme deposit, which the invoice states explicitly.
+function generateInvoicePdf(customer, redemption, config) {
+  return new Promise((resolve, reject) => {
+    const filePath = path.join(INVOICES_DIR, `${redemption.id}.pdf`);
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const stream = fs.createWriteStream(filePath);
+    doc.pipe(stream);
+
+    const ink = "#16130f";
+    const gold = "#c9a24b";
+    const goldDark = "#8a6d24";
+    const muted = "#6b6355";
+    const pageWidth = doc.page.width;
+    const left = 50;
+    const right = pageWidth - 50;
+    const isCoins = redemption.mode === "coins";
+
+    // Header band
+    doc.rect(0, 0, pageWidth, 110).fill(ink);
+    doc.circle(left + 22, 55, 22).fill(gold);
+    doc.fillColor(ink).font("Times-Bold").fontSize(24).text("A", left + 14, 42);
+    doc.fillColor("#faf6ec").font("Times-Bold").fontSize(22).text("Aparanji", left + 58, 36);
+    doc.fillColor(gold).font("Helvetica").fontSize(9)
+      .text("YOUR GOLD COIN PARTNER", left + 58, 64, { characterSpacing: 1 });
+    doc.fillColor("#faf6ec").font("Helvetica-Bold").fontSize(15)
+      .text("REDEMPTION INVOICE", left, 48, { align: "right", width: right - left });
+
+    // Invoice meta
+    let y = 140;
+    doc.fillColor(muted).font("Helvetica").fontSize(10);
+    doc.text(`Invoice No: ${redemption.id}`, left, y);
+    const when = new Date(redemption.date).toLocaleString("en-IN", {
+      day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+    doc.text(`Date of redemption: ${when}`, left, y, { align: "right", width: right - left });
+    y += 14;
+    doc.fillColor(goldDark).font("Helvetica-Bold")
+      .text(`Redemption mode: ${isCoins ? "Gold coins" : "Cash withdrawal to bank account"}`, left, y);
+
+    // Customer block
+    y += 26;
+    doc.fillColor(goldDark).font("Helvetica-Bold").fontSize(11).text("BILLED TO", left, y);
+    y += 18;
+    doc.fillColor(ink).font("Helvetica-Bold").fontSize(12).text(customer.name, left, y);
+    y += 16;
+    doc.fillColor(muted).font("Helvetica").fontSize(10)
+      .text(`Account: ${customer.accountId}   ·   Mobile: ${customer.mobile}   ·   Email: ${customer.email}`, left, y);
+    y += 14;
+    doc.text(`PAN: ${maskPan(customer.pan)}   ·   Aadhaar: ${maskAadhaar(customer.aadhaar)}`, left, y);
+
+    // Deposits covered by this redemption
+    const deposits = redemption.purchases || [];
+    const totalInvested = deposits.reduce((s, p) => s + p.amount, 0);
+    const gstPaid = deposits.reduce((s, p) => s + (p.gst || 0), 0);
+    const firstDate = deposits.length ? new Date(deposits[0].date) : null;
+    y += 26;
+    doc.fillColor(goldDark).font("Helvetica-Bold").fontSize(11).text("SCHEME SUMMARY", left, y);
+    y += 18;
+    const fmtDate = (d) => d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    doc.fillColor(ink).font("Helvetica").fontSize(10.5).text(
+      `${deposits.length} deposit${deposits.length === 1 ? "" : "s"}` +
+      (firstDate ? ` since ${fmtDate(firstDate)}` : "") +
+      `   ·   Total invested: ${rs(totalInvested)}   ·   GST already paid: ${rs(gstPaid)}`,
+      left, y
+    );
+
+    // Amount table
+    y += 30;
+    const rows = [
+      ["Accumulated gold", redemption.grams.toFixed(4) + " g"],
+      ["Gold rate on date of redemption (24K 999)", rs(redemption.ratePerGram) + " / gram"],
+      ["Gross redemption value", rs(redemption.grossValue)],
+    ];
+    if (isCoins) {
+      rows.push([`Making charge on gold coins (${config.makingChargePercent}%)`, rs(redemption.makingCharge)]);
+      rows.push(["Total invoice value", rs(redemption.grossValue + redemption.makingCharge)]);
+    } else {
+      rows.push(["Making charge", "Nil — cash withdrawal"]);
+      rows.push(["Amount payable to your bank account", rs(redemption.grossValue)]);
+    }
+    const rowH = 26;
+    rows.forEach(([label, value], i) => {
+      const rowY = y + i * rowH;
+      if (i % 2 === 0) doc.rect(left, rowY, right - left, rowH).fill("#faf6ec");
+      const bold = i >= rows.length - 1;
+      doc.fillColor(bold ? ink : muted).font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(11)
+        .text(label, left + 12, rowY + 7);
+      doc.fillColor(bold ? goldDark : ink).font("Helvetica-Bold").fontSize(11)
+        .text(value, left, rowY + 7, { align: "right", width: right - left - 12 });
+    });
+    y += rows.length * rowH;
+    doc.moveTo(left, y).lineTo(right, y).lineWidth(1.5).strokeColor(gold).stroke();
+
+    // Settlement + GST notes
+    y += 20;
+    doc.fillColor(ink).font("Helvetica").fontSize(10).text(
+      isCoins
+        ? `Settlement: ${redemption.grams.toFixed(4)} g of 24K gold coins to be handed over. The making charge of ${rs(redemption.makingCharge)} is payable at collection.`
+        : `Settlement: ${rs(redemption.grossValue)} to be transferred to your registered bank account within 2 working days.`,
+      left, y, { width: right - left }
+    );
+    y += 30;
+    doc.fillColor(muted).font("Helvetica").fontSize(9).text(
+      `GST: inclusive. GST @ ${config.gstPercent}% totalling ${rs(gstPaid)} was already collected on each scheme deposit ` +
+      `covered by this invoice; no further GST is charged on redemption.`,
+      left, y, { width: right - left }
+    );
+
+    // Footer
+    doc.fillColor(muted).font("Helvetica-Oblique").fontSize(8.5).text(
+      "This is a computer-generated invoice and does not require a signature.",
       left, doc.page.height - 70, { align: "center", width: right - left }
     );
 
@@ -689,8 +815,7 @@ app.post("/api/redeem", requireAuth, async (req, res) => {
   const makingCharge = mode === "coins" ? Math.round((grossValue * config.makingChargePercent) / 100) : 0;
   const netPayout = mode === "cash" ? grossValue : 0;
 
-  customer.redemptions = customer.redemptions || [];
-  customer.redemptions.push({
+  const redemption = {
     id: "RED-" + crypto.randomBytes(4).toString("hex").toUpperCase(),
     date: new Date().toISOString(),
     mode,
@@ -701,16 +826,45 @@ app.post("/api/redeem", requireAuth, async (req, res) => {
     netPayout,
     status: "processing",
     purchases: customer.purchases,
-  });
+  };
+  customer.redemptions = customer.redemptions || [];
+  customer.redemptions.push(redemption);
   customer.purchases = [];
   saveCustomers(customers);
+
+  // Generate the invoice; a PDF hiccup must not fail the redemption itself.
+  try {
+    await generateInvoicePdf(customer, redemption, config);
+  } catch (e) {
+    console.error("Invoice generation failed:", e.message);
+  }
 
   const message =
     mode === "cash"
       ? `Withdrawal recorded — ₹${grossValue.toLocaleString("en-IN")} for ${grams} g at ₹${rate.toLocaleString("en-IN")}/g. Our team will transfer the amount to your registered account within 2 working days.`
       : `Coin redemption recorded — ${grams} g of gold coins at today's ₹${rate.toLocaleString("en-IN")}/g. A making charge of ₹${makingCharge.toLocaleString("en-IN")} (${config.makingChargePercent}%) is payable on collection. Our team will contact you for handover.`;
 
-  res.json({ message, account: await accountView(customer) });
+  res.json({ message, invoiceId: redemption.id, account: await accountView(customer) });
+});
+
+// ── Download a redemption invoice ────────────────────────────────────────────
+app.get("/api/invoices/:redemptionId", requireAuth, async (req, res) => {
+  const redemptionId = String(req.params.redemptionId || "");
+  if (!/^RED-[A-F0-9]+$/.test(redemptionId)) return res.status(400).json({ error: "Invalid invoice ID" });
+
+  const redemption = (req.customer.redemptions || []).find((r) => r.id === redemptionId);
+  if (!redemption) return res.status(404).json({ error: "Invoice not found" });
+
+  const filePath = path.join(INVOICES_DIR, `${redemptionId}.pdf`);
+  if (!fs.existsSync(filePath)) {
+    try {
+      await generateInvoicePdf(req.customer, redemption, loadConfig());
+    } catch (e) {
+      console.error("Invoice regeneration failed:", e.message);
+      return res.status(500).json({ error: "Could not generate the invoice — please try again" });
+    }
+  }
+  res.download(filePath, `Aparanji_Invoice_${redemptionId}.pdf`);
 });
 
 // ── Admin: full customer list (requires ADMIN_KEY env var) ───────────────────

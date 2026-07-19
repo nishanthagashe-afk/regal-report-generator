@@ -228,6 +228,18 @@
           if (i >= 2 && i <= 4) td.className = "num";
           tr.appendChild(td);
         });
+      const invoiceTd = document.createElement("td");
+      invoiceTd.className = "num";
+      const invLink = document.createElement("a");
+      invLink.href = "#";
+      invLink.className = "receipt-link";
+      invLink.textContent = "PDF";
+      invLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        downloadDocument(`/api/invoices/${r.id}`, `Aparanji_Invoice_${r.id}.pdf`);
+      });
+      invoiceTd.appendChild(invLink);
+      tr.appendChild(invoiceTd);
       redRows.appendChild(tr);
     });
     document.getElementById("noRedemptions").hidden = redemptions.length > 0;
@@ -293,19 +305,19 @@
   }
   buyAmountInput.addEventListener("input", updateBuyPreview);
 
-  // Receipts need the auth header, so fetch as a blob and trigger the download.
-  async function downloadReceipt(purchaseId) {
+  // PDFs need the auth header, so fetch as a blob and trigger the download.
+  async function downloadDocument(apiPath, filename) {
     try {
       const token = localStorage.getItem(TOKEN_KEY);
-      const res = await fetch(`/api/receipts/${purchaseId}`, {
+      const res = await fetch(apiPath, {
         headers: { Authorization: "Bearer " + token },
       });
-      if (!res.ok) throw new Error("Could not download the receipt");
+      if (!res.ok) throw new Error("Could not download the document");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Aparanji_Receipt_${purchaseId}.pdf`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -313,6 +325,10 @@
     } catch (err) {
       window.alert(err.message);
     }
+  }
+
+  function downloadReceipt(purchaseId) {
+    return downloadDocument(`/api/receipts/${purchaseId}`, `Aparanji_Receipt_${purchaseId}.pdf`);
   }
 
   document.getElementById("buyBtn").addEventListener("click", async () => {
@@ -364,7 +380,18 @@
       });
       renderAccount(data.account);
       const success = document.getElementById("redeemSuccess");
-      success.textContent = data.message;
+      success.textContent = data.message + " ";
+      if (data.invoiceId) {
+        const link = document.createElement("a");
+        link.href = "#";
+        link.className = "receipt-link";
+        link.textContent = "Download invoice (PDF)";
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+          downloadDocument(`/api/invoices/${data.invoiceId}`, `Aparanji_Invoice_${data.invoiceId}.pdf`);
+        });
+        success.appendChild(link);
+      }
       success.hidden = false;
     } catch (err) {
       setError("redeemError", err.message);
