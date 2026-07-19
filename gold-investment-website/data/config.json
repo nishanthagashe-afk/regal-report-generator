@@ -1,8 +1,8 @@
 {
-  "goldRatePerGram24K": 7800,
+  "goldRatePerGram24K": 14329,
   "updatedOn": "2026-07-19",
   "importDutyPercent": 15,
-  "localPremiumPercent": 0,
+  "localPremiumPercent": 4.5,
   "minPurchaseAmount": 100,
   "gstPercent": 3,
   "lockInMonths": 11,

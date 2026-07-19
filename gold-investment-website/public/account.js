@@ -57,9 +57,11 @@
       todayRate = data.ratePerGram24K;
       document.getElementById("rate24k").textContent = `24K: ${money(todayRate)}/g`;
       document.getElementById("rateDate").textContent =
-        data.source === "live"
-          ? `LIVE · ${new Date(data.asOf).toLocaleTimeString("en-IN")}`
-          : `Indicative · as of ${data.asOf}`;
+        data.source === "jab"
+          ? `JAB Bengaluru · ${new Date(data.asOf).toLocaleTimeString("en-IN")}`
+          : data.source === "live"
+            ? `LIVE · ${new Date(data.asOf).toLocaleTimeString("en-IN")}`
+            : `Indicative · as of ${data.asOf}`;
       refreshLiveValues();
       updateBuyPreview();
     } catch (e) {

@@ -15,12 +15,19 @@ at the live market rate, starting from ₹100.
 
 ## Features
 
-- **Live Indian 24K rate** — the server fetches the INR gold price live
-  (goldprice.org INR feed, falling back to spot XAU/USD × USD/INR), then applies
-  the configured **import duty** and **local premium** to land on the Indian
-  market rate (IBJA/MCX-style), caches for 30 s, and clients poll `/api/rate`
-  every second. If every feed is unreachable, the configured rate in
-  `data/config.json` is served as a clearly-labelled fallback.
+- **Live Indian 24K rate, JAB-first** — the server first fetches the published
+  rate from the Jewellers' Association Bangalore (jab.org.in) and uses it as-is
+  (it already includes duty and local premium). If JAB can't be fetched or
+  parsed, it falls back to a derived rate — live INR gold price (goldprice.org,
+  then spot XAU/USD × USD/INR) adjusted by the configured **import duty** and
+  **local premium** — and finally to the configured rate in `data/config.json`,
+  clearly labelled. Cached 30 s; clients poll `/api/rate` every second. The
+  ticker shows the source: "JAB Bengaluru", "LIVE", or "Indicative".
+- **PDF receipt vouchers** — every deposit generates a branded A4 receipt
+  (receipt no., customer + masked KYC, gold value, GST, total received, rate
+  applied, grams credited, running balance). Downloadable from the buy
+  confirmation and from each purchase row; auth-guarded per customer and
+  regenerated on demand if missing.
 - **Account creation with KYC** — name, mobile, email, Aadhaar number, PAN, and
   uploaded copies of both documents (JPG/PNG/PDF, max 5 MB each). Duplicate
   mobile/PAN registrations are rejected; accounts start as "Under verification".
@@ -58,11 +65,11 @@ node server.js
 
 Edit `data/config.json`:
 - `goldRatePerGram24K` / `updatedOn` — fallback rate when the live feed is down
-- `importDutyPercent` — customs duty applied on top of INR spot to reach the
-  landed Indian rate (15% since 13 May 2026: 10% BCD + 5% AIDC; update here
-  whenever the duty changes)
-- `localPremiumPercent` — extra local market premium; tune it so the displayed
-  rate tracks the IBJA/MCX published rate in your market
+- `importDutyPercent` — customs duty used by the derived fallback rate (15%
+  since 13 May 2026: 10% BCD + 5% AIDC; update here whenever the duty changes)
+- `localPremiumPercent` — local market premium for the derived fallback rate;
+  tune it so the fallback tracks the JAB published rate (not used when the JAB
+  rate itself is available)
 - `gstPercent`, `lockInMonths`, `makingChargePercent` — scheme terms
 - `minPurchaseAmount` — minimum per purchase
 

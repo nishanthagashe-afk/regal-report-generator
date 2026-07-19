@@ -27,9 +27,11 @@
       if (!res.ok) return;
       document.getElementById("rate24k").textContent = `24K: ${money(data.ratePerGram24K)}/g`;
       document.getElementById("rateDate").textContent =
-        data.source === "live"
-          ? `LIVE · ${new Date(data.asOf).toLocaleTimeString("en-IN")}`
-          : `Indicative · as of ${data.asOf}`;
+        data.source === "jab"
+          ? `JAB Bengaluru · ${new Date(data.asOf).toLocaleTimeString("en-IN")}`
+          : data.source === "live"
+            ? `LIVE · ${new Date(data.asOf).toLocaleTimeString("en-IN")}`
+            : `Indicative · as of ${data.asOf}`;
     } catch (e) {
       /* keep last shown rate */
     }

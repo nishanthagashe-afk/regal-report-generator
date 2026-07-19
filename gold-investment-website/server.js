@@ -39,12 +39,13 @@ function loadConfig() {
 }
 
 // ── Live Indian 24K gold rate ────────────────────────────────────────────────
-// The INR gold price is fetched live (goldprice.org INR feed first, with a
-// spot × USD/INR fallback chain), then adjusted to the Indian market rate by
-// applying import duty and local premium from config — Indian published rates
-// (IBJA/MCX) sit above converted international spot by roughly these margins.
-// Clients poll /api/rate every second and get the cached value. If every feed
-// is unreachable, the configured rate in config.json is used as a fallback.
+// Primary source: the Jewellers' Association Bangalore published rate at
+// jab.org.in — a retail market rate that already includes duty and local
+// premium, used as-is. If JAB can't be fetched or parsed, fall back to a
+// derived rate: live INR gold price (goldprice.org, then spot XAU/USD ×
+// USD/INR) adjusted by the configured import duty and local premium. If every
+// feed is unreachable, the configured rate in config.json is served.
+// Clients poll /api/rate every second and get the cached value.
 const GRAMS_PER_TROY_OUNCE = 31.1034768;
 const RATE_REFRESH_MS = 30 * 1000;
 
@@ -60,6 +61,55 @@ async function fetchJson(url, timeoutMs = 5000) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function fetchText(url, timeoutMs = 6000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        Accept: "text/html,application/xhtml+xml",
+      },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Parse the 24K (999) per-gram rate from the JAB (Jewellers' Association
+// Bangalore) homepage. Tolerant of markup changes: strips tags and looks for a
+// figure near a 999/24K label; values that look like per-10g are scaled down.
+function parseJabRate(html) {
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&#\d+;?/g, " ")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ");
+
+  const patterns = [
+    /(?:999|24\s*(?:k|kt|ct|carat|karat))[^0-9]{0,60}?(?:rs\.?|inr|₹)?\s*([\d,]{4,8})(?:\.\d+)?/i,
+    /(?:fine\s*gold|gold\s*999)[^0-9]{0,60}?([\d,]{4,8})(?:\.\d+)?/i,
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (!m) continue;
+    let value = Number(m[1].replace(/,/g, ""));
+    if (!Number.isFinite(value)) continue;
+    if (value >= 40000 && value <= 400000) value = value / 10; // per 10 g
+    if (value >= 4000 && value <= 40000) return Math.round(value); // per gram
+  }
+  throw new Error("Could not find a 24K rate on the JAB page");
+}
+
+async function fetchJabRatePerGram() {
+  return parseJabRate(await fetchText("https://jab.org.in/"));
 }
 
 // INR per troy ounce, straight from an INR-denominated feed.
@@ -85,6 +135,22 @@ async function fetchInrPerOunceViaUsd() {
 }
 
 async function refreshLiveRate() {
+  // 1. JAB published rate — already the retail Indian market rate, no
+  //    duty/premium adjustment needed.
+  try {
+    rateCache = {
+      ratePerGram: await fetchJabRatePerGram(),
+      source: "jab",
+      asOf: new Date().toISOString(),
+      fetchedAt: Date.now(),
+    };
+    return;
+  } catch {
+    /* fall through to the derived rate */
+  }
+
+  // 2. Derived rate: INR spot + customs import duty + local market premium.
+  //    Tune both in config.json so this tracks the JAB published rate.
   let inrPerOunce;
   try {
     inrPerOunce = await fetchInrPerOunceDirect();
@@ -92,8 +158,6 @@ async function refreshLiveRate() {
     inrPerOunce = await fetchInrPerOunceViaUsd();
   }
 
-  // Landed Indian market rate: customs import duty + local market premium on
-  // top of the INR spot price. Tune both in config.json to track IBJA/MCX.
   const config = loadConfig();
   const duty = 1 + (config.importDutyPercent || 0) / 100;
   const premium = 1 + (config.localPremiumPercent || 0) / 100;
