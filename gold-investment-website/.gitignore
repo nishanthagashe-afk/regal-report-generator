@@ -1,2 +1,4 @@
 node_modules/
 data/leads.json
+data/customers.json
+data/uploads/

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Account — Aparanji</title>
+<meta name="description" content="Create your Aparanji digital gold account with KYC, log in, and track your gold holdings." />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container header-row">
+    <div class="brand">
+      <a href="/" class="brand-link">
+        <span class="brand-mark">A</span>
+        <div class="brand-text">
+          <strong>Aparanji</strong>
+          <small>Digital Gold Investment</small>
+        </div>
+      </a>
+    </div>
+    <nav class="nav" id="nav">
+      <a href="/#why">Why Aparanji</a>
+      <a href="/#calculator">Calculator</a>
+      <a href="/account.html" class="nav-active">My Account</a>
+    </nav>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">☰</button>
+  </div>
+</header>
+
+<div class="rate-ticker">
+  <div class="container rate-row">
+    <span>Today's Gold Rate</span>
+    <span id="rate24k">24K: ₹— /g</span>
+    <span id="rateDate" class="rate-date"></span>
+  </div>
+</div>
+
+<!-- ── Login ───────────────────────────────────────────────────────────── -->
+<section id="loginView" class="section" hidden>
+  <div class="container">
+    <h2 class="section-title">Log in to your account</h2>
+    <p class="section-sub">Use the account ID you received at registration, with your registered mobile number.</p>
+
+    <form id="loginForm" class="enroll-form narrow">
+      <div class="form-grid">
+        <div class="calc-field">
+          <label for="loginAccountId">Account ID *</label>
+          <input type="text" id="loginAccountId" required placeholder="APJ-XXXXXXXX" maxlength="15" />
+        </div>
+        <div class="calc-field">
+          <label for="loginMobile">Registered mobile *</label>
+          <input type="tel" id="loginMobile" required maxlength="15" placeholder="9xxxxxxxxx" />
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary">Log in</button>
+      <p id="loginError" class="form-error" hidden></p>
+      <p class="switch-link">New to Aparanji? <a href="#" id="showRegister">Create an account</a></p>
+    </form>
+  </div>
+</section>
+
+<!-- ── Registration with KYC ───────────────────────────────────────────── -->
+<section id="registerView" class="section" hidden>
+  <div class="container">
+    <h2 class="section-title">Create your account</h2>
+    <p class="section-sub">KYC is mandatory for digital gold investment. Keep your Aadhaar and PAN details and document copies (JPG, PNG or PDF) ready.</p>
+
+    <form id="registerForm" class="enroll-form">
+      <h3 class="form-section-heading">Your details</h3>
+      <div class="form-grid">
+        <div class="calc-field">
+          <label for="regName">Full name (as per PAN) *</label>
+          <input type="text" id="regName" required maxlength="100" />
+        </div>
+        <div class="calc-field">
+          <label for="regMobile">Mobile number *</label>
+          <input type="tel" id="regMobile" required maxlength="15" placeholder="9xxxxxxxxx" />
+        </div>
+        <div class="calc-field">
+          <label for="regEmail">Email *</label>
+          <input type="email" id="regEmail" required maxlength="120" />
+        </div>
+      </div>
+
+      <h3 class="form-section-heading">KYC documents</h3>
+      <div class="form-grid">
+        <div class="calc-field">
+          <label for="regAadhaar">Aadhaar number *</label>
+          <input type="text" id="regAadhaar" required inputmode="numeric" maxlength="14" placeholder="12-digit number" />
+        </div>
+        <div class="calc-field">
+          <label for="regAadhaarDoc">Aadhaar copy (JPG/PNG/PDF, max 5 MB) *</label>
+          <input type="file" id="regAadhaarDoc" required accept=".jpg,.jpeg,.png,.pdf" />
+        </div>
+        <div class="calc-field">
+          <label for="regPan">PAN *</label>
+          <input type="text" id="regPan" required maxlength="10" placeholder="ABCDE1234F" style="text-transform: uppercase;" />
+        </div>
+        <div class="calc-field">
+          <label for="regPanDoc">PAN copy (JPG/PNG/PDF, max 5 MB) *</label>
+          <input type="file" id="regPanDoc" required accept=".jpg,.jpeg,.png,.pdf" />
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Create account</button>
+      <p id="registerError" class="form-error" hidden></p>
+      <div id="registerSuccess" class="form-success" hidden></div>
+      <p class="switch-link">Already registered? <a href="#" id="showLogin">Log in</a></p>
+    </form>
+  </div>
+</section>
+
+<!-- ── Dashboard ───────────────────────────────────────────────────────── -->
+<section id="dashboardView" class="section" hidden>
+  <div class="container">
+    <div class="dash-header">
+      <div>
+        <h2 class="dash-title">Hello, <span id="dashName"></span></h2>
+        <p class="dash-meta">
+          Account <strong id="dashAccountId"></strong> · KYC: <span id="dashKyc" class="kyc-badge"></span>
+        </p>
+        <p class="dash-meta" id="dashContact"></p>
+      </div>
+      <button id="logoutBtn" class="btn btn-ghost-dark">Log out</button>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <span class="stat-label">Invested (incl. GST)</span>
+        <span class="stat-value" id="statInvested">—</span>
+        <span class="stat-note" id="statGstNote"></span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Gold held</span>
+        <span class="stat-value" id="statGrams">—</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Current value</span>
+        <span class="stat-value" id="statValue">—</span>
+        <span class="stat-note" id="statRateNote"></span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Gain / loss</span>
+        <span class="stat-value" id="statGain">—</span>
+      </div>
+    </div>
+
+    <p class="scheme-note" id="schemeNote"></p>
+
+    <div class="dash-columns">
+      <div class="dash-panel">
+        <h3>Buy gold</h3>
+        <p class="dash-note">Purchases are executed at the live rate, plus 3% GST on the purchase value. Our team will contact you to collect payment.</p>
+        <div class="calc-field-group">
+          <div class="calc-field" style="flex:1">
+            <label for="buyAmount">Amount (₹)</label>
+            <input type="number" id="buyAmount" min="0" placeholder="Min ₹100" />
+          </div>
+        </div>
+        <p class="buy-preview" id="buyPreview"></p>
+        <button id="buyBtn" class="btn btn-primary">Buy at today's rate</button>
+        <p id="buyError" class="form-error" hidden></p>
+        <div id="buySuccess" class="form-success" hidden></div>
+      </div>
+
+      <div class="dash-panel">
+        <h3>Your purchases</h3>
+        <div class="table-wrap">
+          <table class="purchase-table">
+            <thead>
+              <tr><th>Date</th><th>Gold value</th><th>GST</th><th>Total paid</th><th>Rate (₹/g)</th><th>Gold</th></tr>
+            </thead>
+            <tbody id="purchaseRows"></tbody>
+          </table>
+        </div>
+        <p id="noPurchases" class="dash-note" hidden>No purchases yet — your first gram is a click away.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container footer-bottom">
+    <span>&copy; <span id="year"></span> Aparanji. All rights reserved.</span>
+  </div>
+</footer>
+
+<script src="account.js"></script>
+</body>
+</html>

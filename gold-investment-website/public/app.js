@@ -19,10 +19,23 @@
     return node;
   }
 
-  function renderRate(config) {
-    document.getElementById("rate24k").textContent = `24K: ${money(config.goldRatePerGram24K)}/g`;
-    document.getElementById("rateDate").textContent = `As of ${config.updatedOn}`;
+  // ── Live rate ticker (polls every second) ──────────────────────────────────
+  async function pollRate() {
+    try {
+      const res = await fetch("/api/rate");
+      const data = await res.json();
+      if (!res.ok) return;
+      document.getElementById("rate24k").textContent = `24K: ${money(data.ratePerGram24K)}/g`;
+      document.getElementById("rateDate").textContent =
+        data.source === "live"
+          ? `LIVE · ${new Date(data.asOf).toLocaleTimeString("en-IN")}`
+          : `Indicative · as of ${data.asOf}`;
+    } catch (e) {
+      /* keep last shown rate */
+    }
   }
+  pollRate();
+  setInterval(pollRate, 1000);
 
   function renderFeatures(features) {
     const container = document.getElementById("featureCards");
@@ -81,7 +94,7 @@
   function renderCalcResult(data) {
     const box = document.getElementById("calcResult");
     box.innerHTML = "";
-    box.appendChild(el("h4", null, "At today's rate"));
+    box.appendChild(el("h4", null, "At the current rate"));
     const dl = document.createElement("dl");
 
     function row(label, value, isHighlight) {
@@ -90,48 +103,13 @@
     }
 
     row("Rate (24K)", `${money(data.ratePerGram)}/g`);
-    row("Amount", money(data.amount));
-    row("Gold", `${data.grams} g`, true);
+    row("Gold value", money(data.amount));
+    row(`GST (${data.gstPercent}%)`, money(data.gst));
+    row("Total payable", money(data.totalPayable), true);
+    row("Gold credited", `${data.grams} g`, true);
 
     box.appendChild(dl);
     box.hidden = false;
-  }
-
-  function showInvestError(msg) {
-    const err = document.getElementById("investError");
-    err.textContent = msg;
-    err.hidden = false;
-    document.getElementById("investSuccess").hidden = true;
-  }
-
-  async function submitInvestment(e) {
-    e.preventDefault();
-    document.getElementById("investError").hidden = true;
-    document.getElementById("investSuccess").hidden = true;
-
-    const payload = {
-      name: document.getElementById("investName").value,
-      phone: document.getElementById("investPhone").value,
-      email: document.getElementById("investEmail").value,
-      amount: document.getElementById("investAmount").value || null,
-    };
-
-    try {
-      const res = await fetch("/api/invest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok) return showInvestError(data.error || "Could not submit");
-
-      const success = document.getElementById("investSuccess");
-      success.textContent = `${data.message} Your reference ID: ${data.referenceId}`;
-      success.hidden = false;
-      document.getElementById("investForm").reset();
-    } catch (err) {
-      showInvestError("Something went wrong. Please try again.");
-    }
   }
 
   // Clear the other calculator field when one is typed into,
@@ -154,13 +132,10 @@
       return;
     }
 
-    renderRate(config);
     renderFeatures(config.features);
     renderSteps(config.steps);
     document.getElementById("calcAmount").placeholder = `Min ₹${config.minPurchaseAmount}`;
-
     document.getElementById("calcSubmit").addEventListener("click", runCalculation);
-    document.getElementById("investForm").addEventListener("submit", submitInvestment);
   }
 
   init();
