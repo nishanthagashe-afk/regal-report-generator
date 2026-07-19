@@ -1,7 +1,7 @@
-# Regal Jewellers — Gold Investment Website
+# Aparanji — Gold Investment Website (Regal Jewellers)
 
-A website for customers to browse, calculate, and enroll in Regal Jewellers' gold
-investment schemes: **Regalia**, **Akshyanidhi**, **GoldGram**, **Swarnaraksha**, and
+A website for customers to browse, calculate, and enroll in Aparanji, Regal Jewellers'
+gold investment program: **Regalia**, **Akshyanidhi**, **GoldGram**, **Swarnaraksha**, and
 **Swayamvara**.
 
 ## Features

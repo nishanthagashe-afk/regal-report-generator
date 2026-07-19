@@ -1,7 +1,7 @@
 {
-  "name": "regal-gold-investment",
+  "name": "aparanji-gold-investment",
   "version": "1.0.0",
-  "description": "Regal Jewellers — Gold Investment Schemes website (Regalia, Akshyanidhi, GoldGram, Swarnaraksha, Swayamvara)",
+  "description": "Aparanji by Regal Jewellers — Gold Investment Schemes website (Regalia, Akshyanidhi, GoldGram, Swarnaraksha, Swayamvara)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
