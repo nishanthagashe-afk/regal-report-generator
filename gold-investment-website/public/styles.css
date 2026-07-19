@@ -219,6 +219,36 @@ h1, h2, h3, h4 { font-family: Georgia, "Times New Roman", serif; margin: 0 0 12p
 
 .loading { text-align: center; color: var(--muted); }
 
+/* How it works */
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
+}
+
+.step-card {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 26px;
+  box-shadow: var(--shadow);
+}
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-light), var(--gold-dark));
+  color: var(--ink);
+  font-weight: bold;
+  font-family: Georgia, serif;
+  margin-bottom: 14px;
+}
+
+.step-card h3 { font-size: 19px; margin-bottom: 8px; }
+.step-card .desc { color: var(--muted); font-size: 14.5px; margin: 0; }
+
 /* Calculator */
 .calc-box {
   background: #fff;
@@ -324,8 +354,6 @@ input:focus, select:focus { outline: 2px solid var(--gold); }
 }
 .footer-note { font-size: 13px; color: rgba(250, 246, 236, 0.6); margin-top: 14px; }
 .site-footer h4 { color: var(--gold-light); font-size: 15px; }
-.branch-list { list-style: none; padding: 0; margin: 0; columns: 2; font-size: 13.5px; }
-.branch-list li { margin-bottom: 8px; break-inside: avoid; }
 .footer-bottom {
   padding: 18px 24px;
   font-size: 13px;
@@ -355,10 +383,10 @@ input:focus, select:focus { outline: 2px solid var(--gold); }
 @media (prefers-color-scheme: dark) {
   body { background: #14110d; color: #f1ead9; }
   .section-alt { background: #1b1712; }
-  .scheme-card, .calc-box, .calc-result, .enroll-form, .faq-list details {
+  .scheme-card, .step-card, .calc-box, .calc-result, .enroll-form, .faq-list details {
     background: #221d16;
     color: #f1ead9;
   }
-  .scheme-card p.desc, .section-sub, .calc-field label, .form-error { color: #c9bfa8; }
+  .scheme-card p.desc, .step-card .desc, .section-sub, .calc-field label, .form-error { color: #c9bfa8; }
   input, select { background: #2a241c; color: #f1ead9; border-color: #4a3f2c; }
 }

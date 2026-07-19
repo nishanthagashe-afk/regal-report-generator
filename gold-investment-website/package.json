@@ -1,7 +1,7 @@
 {
-  "name": "aparanji-gold-investment",
+  "name": "aparanji-digital-gold",
   "version": "1.0.0",
-  "description": "Aparanji by Regal Jewellers — Gold Investment Schemes website (Regalia, Akshyanidhi, GoldGram, Swarnaraksha, Swayamvara)",
+  "description": "Aparanji — digital gold investment website. Invest in 24K gold from ₹100 at the live rate.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

@@ -1,0 +1,30 @@
+{
+  "goldRatePerGram24K": 7800,
+  "updatedOn": "2026-07-19",
+  "minPurchaseAmount": 100,
+  "lockInMonths": 1,
+  "purity": "24K 999",
+  "features": [
+    {
+      "title": "Start from just ₹100",
+      "description": "Buy 24K digital gold in fractional grams — no minimum grams, no fixed schedule. Invest any amount, any day."
+    },
+    {
+      "title": "Live market rate",
+      "description": "Every purchase is executed at the day's published gold rate, so you always know exactly how many grams you own."
+    },
+    {
+      "title": "Secured in your account",
+      "description": "Your gold balance is recorded against your account and statements are available on request — track your grams in real time."
+    },
+    {
+      "title": "Redeem after 1 month",
+      "description": "After a short 1-month lock-in, convert your holdings to coins or bars, or sell back at the prevailing rate."
+    }
+  ],
+  "steps": [
+    { "step": 1, "title": "Register", "description": "Submit your details below — our team verifies your KYC and activates your account within 24 hours." },
+    { "step": 2, "title": "Invest", "description": "Transfer any amount from ₹100 upward. Your grams are credited at the day's rate." },
+    { "step": 3, "title": "Track & redeem", "description": "Watch your gold grow with every top-up. Redeem as coins or bars, or sell back after the lock-in." }
+  ]
+}

@@ -1,28 +1,29 @@
-# Aparanji — Gold Investment Website (Regal Jewellers)
+# Aparanji — Digital Gold Investment Website
 
-A website for customers to browse, calculate, and enroll in Aparanji, Regal Jewellers'
-gold investment program: **Regalia**, **Akshyanidhi**, **GoldGram**, **Swarnaraksha**, and
-**Swayamvara**.
+An independent website for Aparanji, accepting investment exclusively toward
+**digital gold purchase**: customers buy 24K 999-purity gold in fractional grams
+at the live daily rate, starting from ₹100.
 
 ## Features
 
-- **Scheme showcase** — cards for all five schemes with tenure, minimums, and highlights.
-- **Investment calculator** — estimates maturity value / bonus for installment schemes,
-  or grams accumulated for the GoldGram digital-gold scheme.
-- **Enrollment form** — captures name, phone, email, preferred scheme, amount, and
-  branch; returns a reference ID (e.g. `RGL-3F9A2C10`) and stores the enquiry.
+- **Digital gold only** — no installment schemes, chit-style plans, or rate-lock
+  products; a single simple product.
+- **Live rate ticker** — today's 24K rate shown site-wide, driven by `data/config.json`.
+- **Gold calculator** — converts ₹ → grams or a gram target → ₹ at today's rate.
+- **Investment form** — captures name, phone, email, and intended first investment;
+  returns a reference ID (e.g. `APJ-3F9A2C10`) and stores the enquiry for KYC follow-up.
 - Responsive, gold/black themed design (desktop + mobile), with light/dark support.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `server.js` | Express backend — scheme data, calculator, and enrollment APIs |
-| `data/schemes.json` | Scheme definitions and today's gold rate (edit this to update rates/terms) |
-| `data/leads.json` | Auto-created; stores submitted enrollment enquiries |
+| `server.js` | Express backend — config, calculator, and investment-enquiry APIs |
+| `data/config.json` | Gold rate, minimum purchase, lock-in, and page content (edit this to update rates) |
+| `data/leads.json` | Auto-created; stores submitted investment enquiries |
 | `public/index.html` | The website markup |
 | `public/styles.css` | Styling |
-| `public/app.js` | Frontend logic (fetches schemes, runs calculator, submits enrollments) |
+| `public/app.js` | Frontend logic (loads config, runs calculator, submits enquiries) |
 
 ## Run locally
 
@@ -33,10 +34,10 @@ node server.js
 # Open http://localhost:3000
 ```
 
-## Updating the gold rate / scheme terms
+## Updating the gold rate
 
-Edit `data/schemes.json` — no code changes needed. Update `goldRatePerGram22K`,
-`goldRatePerGram24K`, and `updatedOn` daily (or wire it to a live rate feed later).
+Edit `data/config.json` — no code changes needed. Update `goldRatePerGram24K` and
+`updatedOn` daily (or wire it to a live rate feed later).
 
 ## Viewing submitted enquiries
 
@@ -51,8 +52,7 @@ The endpoint returns `403` if `ADMIN_KEY` is not set, so it's safe by default.
 
 ## Deploy
 
-Same flow as this repo's report-generator app: push to GitHub, then on
-[Render](https://render.com) create a **Web Service** with:
+Push to GitHub, then on [Render](https://render.com) create a **Web Service** with:
 - **Runtime**: Node
 - **Build Command**: `npm install`
 - **Start Command**: `node server.js`
@@ -60,8 +60,7 @@ Same flow as this repo's report-generator app: push to GitHub, then on
 
 ## Notes
 
-- Gold rates and scheme bonuses shown are indicative; `data/schemes.json` is the
-  single source of truth used by both the calculator and enrollment validation.
-- No real "jar app" source was available to port from — this was designed from
-  scratch using the gold-scheme names already referenced in this repository's
-  fund position report generator.
+- The rate applied to a real purchase should be the published rate at execution
+  time; the site's calculator is indicative.
+- `data/config.json` is the single source of truth used by both the calculator
+  and enquiry validation.

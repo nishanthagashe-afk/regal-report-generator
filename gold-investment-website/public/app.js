@@ -4,8 +4,6 @@
   const money = (n) =>
     "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
-  let schemesData = null;
-
   document.getElementById("year").textContent = new Date().getFullYear();
 
   // Mobile nav toggle
@@ -21,86 +19,32 @@
     return node;
   }
 
-  function renderRate(data) {
-    document.getElementById("rate22k").textContent = `22K: ${money(data.goldRatePerGram22K)}/g`;
-    document.getElementById("rate24k").textContent = `24K: ${money(data.goldRatePerGram24K)}/g`;
-    document.getElementById("rateDate").textContent = `As of ${data.updatedOn}`;
+  function renderRate(config) {
+    document.getElementById("rate24k").textContent = `24K: ${money(config.goldRatePerGram24K)}/g`;
+    document.getElementById("rateDate").textContent = `As of ${config.updatedOn}`;
   }
 
-  function renderSchemeCards(schemes) {
-    const container = document.getElementById("schemeCards");
+  function renderFeatures(features) {
+    const container = document.getElementById("featureCards");
     container.innerHTML = "";
-    schemes.forEach((s) => {
+    (features || []).forEach((f) => {
       const card = el("div", "scheme-card");
-      card.appendChild(el("h3", null, s.name));
-      card.appendChild(el("p", "tagline", s.tagline));
-      card.appendChild(el("p", "desc", s.description));
-      const ul = el("ul");
-      (s.highlights || []).forEach((h) => ul.appendChild(el("li", null, h)));
-      card.appendChild(ul);
+      card.appendChild(el("h3", null, f.title));
+      card.appendChild(el("p", "desc", f.description));
       container.appendChild(card);
     });
   }
 
-  function populateSchemeSelect(select, schemes) {
-    select.innerHTML = "";
-    schemes.forEach((s) => {
-      const opt = el("option", null, s.name);
-      opt.value = s.id;
-      select.appendChild(opt);
+  function renderSteps(steps) {
+    const container = document.getElementById("stepCards");
+    container.innerHTML = "";
+    (steps || []).forEach((s) => {
+      const card = el("div", "step-card");
+      card.appendChild(el("span", "step-num", String(s.step)));
+      card.appendChild(el("h3", null, s.title));
+      card.appendChild(el("p", "desc", s.description));
+      container.appendChild(card);
     });
-  }
-
-  function populateBranches(schemesPayload) {
-    const list = document.getElementById("branchList");
-    const branchSelect = document.getElementById("enrollBranch");
-    list.innerHTML = "";
-    branchSelect.innerHTML = "";
-    branchSelect.appendChild(el("option", null, "No preference"));
-    (schemesPayload.branches || []).forEach((b) => {
-      list.appendChild(el("li", null, b));
-      const opt = el("option", null, b);
-      branchSelect.appendChild(opt);
-    });
-  }
-
-  function currentScheme(id) {
-    return schemesData.schemes.find((s) => s.id === id);
-  }
-
-  function updateCalcFieldsForScheme() {
-    const schemeId = document.getElementById("calcScheme").value;
-    const scheme = currentScheme(schemeId);
-    const installmentFields = document.getElementById("calcInstallmentFields");
-    const digitalFields = document.getElementById("calcDigitalFields");
-    const tenureField = document.getElementById("calcTenureField");
-    const tenureSelect = document.getElementById("calcTenure");
-
-    if (!scheme) return;
-
-    if (scheme.type === "digital-gold") {
-      installmentFields.hidden = true;
-      digitalFields.hidden = false;
-      return;
-    }
-
-    installmentFields.hidden = false;
-    digitalFields.hidden = true;
-
-    const monthlyInput = document.getElementById("calcMonthly");
-    monthlyInput.placeholder = `Min ₹${scheme.minMonthlyAmount}`;
-
-    if (scheme.tenureOptions) {
-      tenureField.hidden = false;
-      tenureSelect.innerHTML = "";
-      scheme.tenureOptions.forEach((t) => {
-        const opt = el("option", null, `${t} months`);
-        opt.value = t;
-        tenureSelect.appendChild(opt);
-      });
-    } else {
-      tenureField.hidden = true;
-    }
   }
 
   function showCalcError(msg) {
@@ -111,18 +55,14 @@
   }
 
   async function runCalculation() {
-    const schemeId = document.getElementById("calcScheme").value;
-    const scheme = currentScheme(schemeId);
     document.getElementById("calcError").hidden = true;
+    const amountVal = document.getElementById("calcAmount").value;
+    const gramsVal = document.getElementById("calcGrams").value;
 
-    const payload = { schemeId };
-    if (scheme.type === "digital-gold") {
-      payload.digitalAmount = Number(document.getElementById("calcDigitalAmount").value);
-    } else {
-      payload.monthlyAmount = Number(document.getElementById("calcMonthly").value);
-      const tenureSelect = document.getElementById("calcTenure");
-      if (!tenureSelect.hidden) payload.tenureMonths = Number(tenureSelect.value);
-    }
+    const payload = {};
+    if (amountVal) payload.amount = Number(amountVal);
+    else if (gramsVal) payload.grams = Number(gramsVal);
+    else return showCalcError("Enter an amount in ₹ or a gram target.");
 
     try {
       const res = await fetch("/api/calculate", {
@@ -132,16 +72,16 @@
       });
       const data = await res.json();
       if (!res.ok) return showCalcError(data.error || "Could not calculate");
-      renderCalcResult(scheme, data);
+      renderCalcResult(data);
     } catch (e) {
       showCalcError("Something went wrong. Please try again.");
     }
   }
 
-  function renderCalcResult(scheme, data) {
+  function renderCalcResult(data) {
     const box = document.getElementById("calcResult");
     box.innerHTML = "";
-    box.appendChild(el("h4", null, `${scheme.name} — indicative outcome`));
+    box.appendChild(el("h4", null, "At today's rate"));
     const dl = document.createElement("dl");
 
     function row(label, value, isHighlight) {
@@ -149,81 +89,78 @@
       dl.appendChild(el("dd", isHighlight ? "highlight" : null, value));
     }
 
-    if (data.gramsAccumulated !== undefined) {
-      row("Amount invested", money(data.amount));
-      row("Rate used (24K)", `${money(data.ratePerGram)}/g`);
-      row("Grams accumulated", `${data.gramsAccumulated} g`);
-    } else {
-      row("Total installments", `${data.tenureMonths} months`);
-      row("Total you pay in", money(data.totalPaid));
-      row("Scheme bonus", money(data.bonus));
-      row("Maturity value", money(data.maturityValue), true);
-      row("Approx. gold (22K)", `${data.approxGrams} g`);
-    }
+    row("Rate (24K)", `${money(data.ratePerGram)}/g`);
+    row("Amount", money(data.amount));
+    row("Gold", `${data.grams} g`, true);
 
     box.appendChild(dl);
     box.hidden = false;
   }
 
-  function showEnrollError(msg) {
-    const err = document.getElementById("enrollError");
+  function showInvestError(msg) {
+    const err = document.getElementById("investError");
     err.textContent = msg;
     err.hidden = false;
-    document.getElementById("enrollSuccess").hidden = true;
+    document.getElementById("investSuccess").hidden = true;
   }
 
-  async function submitEnrollment(e) {
+  async function submitInvestment(e) {
     e.preventDefault();
-    document.getElementById("enrollError").hidden = true;
-    document.getElementById("enrollSuccess").hidden = true;
+    document.getElementById("investError").hidden = true;
+    document.getElementById("investSuccess").hidden = true;
 
     const payload = {
-      name: document.getElementById("enrollName").value,
-      phone: document.getElementById("enrollPhone").value,
-      email: document.getElementById("enrollEmail").value,
-      schemeId: document.getElementById("enrollScheme").value,
-      monthlyAmount: document.getElementById("enrollMonthly").value || null,
-      branch: document.getElementById("enrollBranch").value,
+      name: document.getElementById("investName").value,
+      phone: document.getElementById("investPhone").value,
+      email: document.getElementById("investEmail").value,
+      amount: document.getElementById("investAmount").value || null,
     };
 
     try {
-      const res = await fetch("/api/enroll", {
+      const res = await fetch("/api/invest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      if (!res.ok) return showEnrollError(data.error || "Could not submit enquiry");
+      if (!res.ok) return showInvestError(data.error || "Could not submit");
 
-      const success = document.getElementById("enrollSuccess");
+      const success = document.getElementById("investSuccess");
       success.textContent = `${data.message} Your reference ID: ${data.referenceId}`;
       success.hidden = false;
-      document.getElementById("enrollForm").reset();
+      document.getElementById("investForm").reset();
     } catch (err) {
-      showEnrollError("Something went wrong. Please try again.");
+      showInvestError("Something went wrong. Please try again.");
     }
   }
 
+  // Clear the other calculator field when one is typed into,
+  // so it's obvious which input drives the result.
+  document.getElementById("calcAmount").addEventListener("input", () => {
+    document.getElementById("calcGrams").value = "";
+  });
+  document.getElementById("calcGrams").addEventListener("input", () => {
+    document.getElementById("calcAmount").value = "";
+  });
+
   async function init() {
+    let config;
     try {
-      const res = await fetch("/api/schemes");
-      schemesData = await res.json();
+      const res = await fetch("/api/config");
+      config = await res.json();
     } catch (e) {
-      document.getElementById("schemeCards").innerHTML =
-        '<p class="loading">Could not load schemes. Please refresh the page.</p>';
+      document.getElementById("featureCards").innerHTML =
+        '<p class="loading">Could not load. Please refresh the page.</p>';
       return;
     }
 
-    renderRate(schemesData);
-    renderSchemeCards(schemesData.schemes);
-    populateSchemeSelect(document.getElementById("calcScheme"), schemesData.schemes);
-    populateSchemeSelect(document.getElementById("enrollScheme"), schemesData.schemes);
-    populateBranches(schemesData);
+    renderRate(config);
+    renderFeatures(config.features);
+    renderSteps(config.steps);
+    document.getElementById("calcAmount").placeholder = `Min ₹${config.minPurchaseAmount}`;
 
-    updateCalcFieldsForScheme();
-    document.getElementById("calcScheme").addEventListener("change", updateCalcFieldsForScheme);
     document.getElementById("calcSubmit").addEventListener("click", runCalculation);
-    document.getElementById("enrollForm").addEventListener("submit", submitEnrollment);
+    document.getElementById("investForm").addEventListener("submit", submitInvestment);
   }
 
   init();

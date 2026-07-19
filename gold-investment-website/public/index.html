@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Aparanji — Gold Investment Schemes | Regal Jewellers</title>
-<meta name="description" content="Aparanji by Regal Jewellers — invest in gold with Regalia, Akshyanidhi, GoldGram, Swarnaraksha and Swayamvara savings schemes." />
+<title>Aparanji — Digital Gold Investment</title>
+<meta name="description" content="Aparanji — invest in 24K digital gold from ₹100. Buy at the live rate, track your grams, redeem as coins or bars." />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -15,15 +15,15 @@
       <span class="brand-mark">A</span>
       <div class="brand-text">
         <strong>Aparanji</strong>
-        <small>by Regal Jewellers</small>
+        <small>Digital Gold Investment</small>
       </div>
     </div>
     <nav class="nav" id="nav">
-      <a href="#schemes">Schemes</a>
+      <a href="#why">Why Aparanji</a>
+      <a href="#how">How it works</a>
       <a href="#calculator">Calculator</a>
-      <a href="#enroll">Enroll</a>
+      <a href="#invest">Invest</a>
       <a href="#faq">FAQ</a>
-      <a href="#contact">Contact</a>
     </nav>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">☰</button>
   </div>
@@ -31,14 +31,14 @@
 
 <section class="hero">
   <div class="container hero-inner">
-    <p class="eyebrow">Trusted across Kerala &amp; beyond</p>
-    <h1>Grow your gold, <span>your way.</span></h1>
+    <p class="eyebrow">24K 999 purity digital gold</p>
+    <h1>Own gold, <span>one rupee at a time.</span></h1>
     <p class="hero-sub">
-      Five flexible gold investment schemes designed for every goal — monthly savings,
-      digital gold, rate protection, and dedicated wedding planning.
+      Aparanji accepts investment exclusively toward digital gold purchase.
+      Buy 24K gold in fractional grams at the live rate — starting from just ₹100.
     </p>
     <div class="hero-cta">
-      <a href="#schemes" class="btn btn-primary">Explore Schemes</a>
+      <a href="#invest" class="btn btn-primary">Start Investing</a>
       <a href="#calculator" class="btn btn-ghost">Try the Calculator</a>
     </div>
   </div>
@@ -47,51 +47,45 @@
 <div class="rate-ticker">
   <div class="container rate-row">
     <span>Today's Gold Rate</span>
-    <span id="rate22k">22K: ₹— /g</span>
     <span id="rate24k">24K: ₹— /g</span>
     <span id="rateDate" class="rate-date"></span>
   </div>
 </div>
 
-<section id="schemes" class="section">
+<section id="why" class="section">
   <div class="container">
-    <h2 class="section-title">Choose your scheme</h2>
-    <p class="section-sub">Every scheme redeems for jewellery, coins or bars at any Regal Jewellers showroom.</p>
-    <div id="schemeCards" class="scheme-grid">
-      <p class="loading">Loading schemes…</p>
+    <h2 class="section-title">Why invest with Aparanji</h2>
+    <p class="section-sub">A single, simple product: digital gold. No schemes, no installment lock-ins — just gold, at the rate you can see.</p>
+    <div id="featureCards" class="scheme-grid">
+      <p class="loading">Loading…</p>
     </div>
   </div>
 </section>
 
-<section id="calculator" class="section section-alt">
+<section id="how" class="section section-alt">
   <div class="container">
-    <h2 class="section-title">Investment calculator</h2>
-    <p class="section-sub">See an indicative maturity value before you enroll.</p>
+    <h2 class="section-title">How it works</h2>
+    <p class="section-sub">Three steps from sign-up to holding gold.</p>
+    <div id="stepCards" class="steps-grid"></div>
+  </div>
+</section>
+
+<section id="calculator" class="section">
+  <div class="container">
+    <h2 class="section-title">Gold calculator</h2>
+    <p class="section-sub">See exactly how many grams your money buys at today's rate — or what a gram target costs.</p>
 
     <div class="calc-box">
-      <div class="calc-field">
-        <label for="calcScheme">Scheme</label>
-        <select id="calcScheme"></select>
-      </div>
-
-      <div id="calcInstallmentFields" class="calc-field-group">
+      <div class="calc-field-group">
         <div class="calc-field">
-          <label for="calcMonthly">Monthly installment (₹)</label>
-          <input type="number" id="calcMonthly" min="0" placeholder="e.g. 2000" />
+          <label for="calcAmount">Amount to invest (₹)</label>
+          <input type="number" id="calcAmount" min="0" placeholder="e.g. 5000" />
         </div>
-        <div class="calc-field" id="calcTenureField">
-          <label for="calcTenure">Tenure (months)</label>
-          <select id="calcTenure"></select>
-        </div>
-      </div>
-
-      <div id="calcDigitalFields" class="calc-field-group" hidden>
         <div class="calc-field">
-          <label for="calcDigitalAmount">Amount to invest (₹)</label>
-          <input type="number" id="calcDigitalAmount" min="0" placeholder="e.g. 5000" />
+          <label for="calcGrams">Or target gold (grams)</label>
+          <input type="number" id="calcGrams" min="0" step="0.1" placeholder="e.g. 2.5" />
         </div>
       </div>
-
       <button id="calcSubmit" class="btn btn-primary calc-btn">Calculate</button>
     </div>
 
@@ -100,65 +94,61 @@
   </div>
 </section>
 
-<section id="enroll" class="section">
+<section id="invest" class="section section-alt">
   <div class="container">
-    <h2 class="section-title">Enroll in minutes</h2>
-    <p class="section-sub">Leave your details and a Regal Jewellers advisor will reach out to complete your enrollment.</p>
+    <h2 class="section-title">Start investing</h2>
+    <p class="section-sub">Leave your details and our team will contact you to complete KYC and activate your digital gold account.</p>
 
-    <form id="enrollForm" class="enroll-form">
+    <form id="investForm" class="enroll-form">
       <div class="form-grid">
         <div class="calc-field">
-          <label for="enrollName">Full name *</label>
-          <input type="text" id="enrollName" required maxlength="100" />
+          <label for="investName">Full name *</label>
+          <input type="text" id="investName" required maxlength="100" />
         </div>
         <div class="calc-field">
-          <label for="enrollPhone">Phone number *</label>
-          <input type="tel" id="enrollPhone" required maxlength="20" placeholder="+91 9xxxxxxxxx" />
+          <label for="investPhone">Phone number *</label>
+          <input type="tel" id="investPhone" required maxlength="20" placeholder="+91 9xxxxxxxxx" />
         </div>
         <div class="calc-field">
-          <label for="enrollEmail">Email (optional)</label>
-          <input type="email" id="enrollEmail" maxlength="120" />
+          <label for="investEmail">Email (optional)</label>
+          <input type="email" id="investEmail" maxlength="120" />
         </div>
         <div class="calc-field">
-          <label for="enrollScheme">Preferred scheme *</label>
-          <select id="enrollScheme" required></select>
-        </div>
-        <div class="calc-field">
-          <label for="enrollMonthly">Preferred monthly amount (₹)</label>
-          <input type="number" id="enrollMonthly" min="0" />
-        </div>
-        <div class="calc-field">
-          <label for="enrollBranch">Nearest branch</label>
-          <select id="enrollBranch"></select>
+          <label for="investAmount">Intended first investment (₹)</label>
+          <input type="number" id="investAmount" min="0" placeholder="Min ₹100" />
         </div>
       </div>
 
-      <button type="submit" class="btn btn-primary">Submit enquiry</button>
-      <p id="enrollError" class="form-error" hidden></p>
-      <div id="enrollSuccess" class="form-success" hidden></div>
+      <button type="submit" class="btn btn-primary">Submit</button>
+      <p id="investError" class="form-error" hidden></p>
+      <div id="investSuccess" class="form-success" hidden></div>
     </form>
   </div>
 </section>
 
-<section id="faq" class="section section-alt">
+<section id="faq" class="section">
   <div class="container">
     <h2 class="section-title">Frequently asked questions</h2>
     <div class="faq-list">
       <details>
-        <summary>What happens if I miss an installment?</summary>
-        <p>You can pay a missed installment along with the next one. Speak to your branch advisor if you need to pause or restructure your plan.</p>
+        <summary>What exactly am I buying?</summary>
+        <p>24K 999-purity digital gold. Every rupee you invest is converted to grams at the day's published rate and credited to your account balance.</p>
       </details>
       <details>
-        <summary>Can I redeem at any Regal Jewellers branch?</summary>
-        <p>Yes — all schemes are redeemable at any of our branches across Kerala on presentation of your enrollment reference and ID proof.</p>
+        <summary>Is there a minimum investment?</summary>
+        <p>Yes — ₹100 per purchase. There is no upper limit and no fixed schedule; top up whenever you like.</p>
       </details>
       <details>
-        <summary>Is my gold rate locked in advance?</summary>
-        <p>Only Swarnaraksha locks a rate in advance. Other schemes redeem at the gold rate applicable on the day of purchase, plus any scheme bonus.</p>
+        <summary>Can I redeem my gold physically?</summary>
+        <p>Yes. After the 1-month lock-in, you can convert your balance to coins or bars, or sell back at the prevailing rate.</p>
       </details>
       <details>
-        <summary>Can I switch schemes after enrolling?</summary>
-        <p>Yes, subject to branch approval and any applicable adjustment — contact your enrollment branch to discuss switching.</p>
+        <summary>Do you offer installment or savings schemes?</summary>
+        <p>No. Aparanji accepts investment only toward digital gold purchase — there are no installment schemes, chit-style plans, or rate-lock products.</p>
+      </details>
+      <details>
+        <summary>How do I track my holdings?</summary>
+        <p>Your gram balance is updated with every purchase and a statement is available on request. Contact our team any time for your current balance.</p>
       </details>
     </div>
   </div>
@@ -168,25 +158,21 @@
   <div class="container footer-grid">
     <div>
       <div class="brand">
-        <span class="brand-mark">R</span>
+        <span class="brand-mark">A</span>
         <div class="brand-text">
-          <strong>Regal Jewellers</strong>
-          <small>Gold Investment Schemes</small>
+          <strong>Aparanji</strong>
+          <small>Digital Gold Investment</small>
         </div>
       </div>
-      <p class="footer-note">Terms &amp; conditions apply. Gold rates and bonuses are indicative and subject to change; final values are confirmed at your enrolling branch.</p>
-    </div>
-    <div>
-      <h4>Our branches</h4>
-      <ul id="branchList" class="branch-list"></ul>
+      <p class="footer-note">Terms &amp; conditions apply. Gold rates are indicative and subject to change; the rate applied to a purchase is the published rate at the time of execution. Digital gold is an unregulated product — invest responsibly.</p>
     </div>
     <div>
       <h4>Talk to us</h4>
-      <p>Have questions before enrolling? Reach out to your nearest branch, or submit an enquiry above and our team will call you back.</p>
+      <p>Questions before investing? Submit the form above and our team will call you back within 24 hours.</p>
     </div>
   </div>
   <div class="container footer-bottom">
-    <span>&copy; <span id="year"></span> Aparanji by Regal Jewellers. All rights reserved.</span>
+    <span>&copy; <span id="year"></span> Aparanji. All rights reserved.</span>
   </div>
 </footer>
 

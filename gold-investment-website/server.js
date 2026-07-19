@@ -7,14 +7,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const DATA_DIR = path.join(__dirname, "data");
-const SCHEMES_PATH = path.join(DATA_DIR, "schemes.json");
+const CONFIG_PATH = path.join(DATA_DIR, "config.json");
 const LEADS_PATH = path.join(DATA_DIR, "leads.json");
 
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
 
-function loadSchemes() {
-  return JSON.parse(fs.readFileSync(SCHEMES_PATH, "utf8"));
+function loadConfig() {
+  return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
 }
 
 function loadLeads() {
@@ -30,68 +30,51 @@ function saveLead(lead) {
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
-app.get("/api/schemes", (req, res) => {
-  res.json(loadSchemes());
+app.get("/api/config", (req, res) => {
+  res.json(loadConfig());
 });
 
+// Convert between rupees and grams at today's rate.
+// Accepts either { amount } or { grams }.
 app.post("/api/calculate", (req, res) => {
-  const { schemeId, monthlyAmount, tenureMonths, digitalAmount } = req.body || {};
-  const { schemes, goldRatePerGram22K, goldRatePerGram24K } = loadSchemes();
-  const scheme = schemes.find((s) => s.id === schemeId);
+  const { amount, grams } = req.body || {};
+  const config = loadConfig();
+  const rate = config.goldRatePerGram24K;
 
-  if (!scheme) return res.status(400).json({ error: "Unknown scheme" });
-
-  if (scheme.type === "digital-gold") {
-    const amount = Number(digitalAmount);
-    if (!Number.isFinite(amount) || amount < scheme.minAmount) {
-      return res.status(400).json({ error: `Minimum amount is ₹${scheme.minAmount}` });
+  if (amount !== undefined && amount !== null && amount !== "") {
+    const rupees = Number(amount);
+    if (!Number.isFinite(rupees) || rupees < config.minPurchaseAmount) {
+      return res.status(400).json({ error: `Minimum purchase is ₹${config.minPurchaseAmount}` });
     }
-    const grams = amount / goldRatePerGram24K;
     return res.json({
-      schemeId,
-      amount,
-      ratePerGram: goldRatePerGram24K,
-      gramsAccumulated: Number(grams.toFixed(4)),
+      amount: rupees,
+      ratePerGram: rate,
+      grams: Number((rupees / rate).toFixed(4)),
     });
   }
 
-  const monthly = Number(monthlyAmount);
-  if (!Number.isFinite(monthly) || monthly < (scheme.minMonthlyAmount || 0)) {
-    return res.status(400).json({ error: `Minimum installment is ₹${scheme.minMonthlyAmount}` });
+  if (grams !== undefined && grams !== null && grams !== "") {
+    const g = Number(grams);
+    if (!Number.isFinite(g) || g <= 0) {
+      return res.status(400).json({ error: "Enter a valid number of grams" });
+    }
+    const rupees = g * rate;
+    if (rupees < config.minPurchaseAmount) {
+      return res.status(400).json({ error: `Minimum purchase is ₹${config.minPurchaseAmount}` });
+    }
+    return res.json({
+      grams: g,
+      ratePerGram: rate,
+      amount: Math.round(rupees),
+    });
   }
 
-  let tenure = Number(tenureMonths) || scheme.tenureMonths;
-  if (scheme.tenureOptions && !scheme.tenureOptions.includes(tenure)) {
-    tenure = scheme.tenureOptions[0];
-  }
-
-  const totalPaid = monthly * tenure;
-  let bonus = 0;
-
-  if (scheme.bonusMonths) {
-    bonus = monthly * scheme.bonusMonths;
-  } else if (scheme.bonusPercentByTenure) {
-    const pct = scheme.bonusPercentByTenure[String(tenure)] || 0;
-    bonus = Math.round((totalPaid * pct) / 100);
-  }
-
-  const maturityValue = totalPaid + bonus;
-  const gramsAtMaturity = maturityValue / goldRatePerGram22K;
-
-  res.json({
-    schemeId,
-    monthlyAmount: monthly,
-    tenureMonths: tenure,
-    totalPaid,
-    bonus,
-    maturityValue,
-    ratePerGram: goldRatePerGram22K,
-    approxGrams: Number(gramsAtMaturity.toFixed(3)),
-  });
+  res.status(400).json({ error: "Provide an amount in ₹ or grams" });
 });
 
-app.post("/api/enroll", (req, res) => {
-  const { name, phone, email, schemeId, monthlyAmount, branch } = req.body || {};
+// Investment interest / registration enquiry
+app.post("/api/invest", (req, res) => {
+  const { name, phone, email, amount } = req.body || {};
 
   if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
   if (!phone || !/^[0-9+\-\s]{7,15}$/.test(String(phone).trim())) {
@@ -101,25 +84,27 @@ app.post("/api/enroll", (req, res) => {
     return res.status(400).json({ error: "Email address looks invalid" });
   }
 
-  const { schemes } = loadSchemes();
-  const scheme = schemes.find((s) => s.id === schemeId);
-  if (!scheme) return res.status(400).json({ error: "Please select a valid scheme" });
+  const config = loadConfig();
+  let intendedAmount = null;
+  if (amount !== undefined && amount !== null && amount !== "") {
+    intendedAmount = Number(amount);
+    if (!Number.isFinite(intendedAmount) || intendedAmount < config.minPurchaseAmount) {
+      return res.status(400).json({ error: `Minimum investment is ₹${config.minPurchaseAmount}` });
+    }
+  }
 
-  const referenceId = "RGL-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+  const referenceId = "APJ-" + crypto.randomBytes(4).toString("hex").toUpperCase();
 
   saveLead({
     referenceId,
     name: String(name).trim(),
     phone: String(phone).trim(),
     email: email ? String(email).trim() : null,
-    schemeId,
-    schemeName: scheme.name,
-    monthlyAmount: monthlyAmount ? Number(monthlyAmount) : null,
-    branch: branch || null,
+    intendedAmount,
     submittedAt: new Date().toISOString(),
   });
 
-  res.json({ referenceId, message: "Thank you! Our team will contact you within 24 hours." });
+  res.json({ referenceId, message: "Thank you! Our team will contact you within 24 hours to complete your KYC and activate your account." });
 });
 
 // Simple protected view for the business owner to review submitted enquiries.
@@ -131,4 +116,4 @@ app.get("/api/leads", (req, res) => {
   res.json(loadLeads());
 });
 
-app.listen(PORT, () => console.log(`Regal Gold Investment website running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Aparanji Digital Gold website running on port ${PORT}`));
