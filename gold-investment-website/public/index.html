@@ -19,6 +19,7 @@
       </div>
     </div>
     <nav class="nav" id="nav">
+      <a href="#why-gold">Why invest in gold?</a>
       <a href="#why">Why Aparanji</a>
       <a href="#how">How it works</a>
       <a href="#calculator">Calculator</a>
@@ -52,7 +53,40 @@
   </div>
 </div>
 
-<section id="why" class="section">
+<section class="trust-strip">
+  <div class="container trust-row">
+    <div class="trust-item"><strong>24K 999</strong><span>Assured purity</span></div>
+    <div class="trust-item"><strong>100%</strong><span>Vault-secured holdings</span></div>
+    <div class="trust-item"><strong>₹100</strong><span>Minimum investment</span></div>
+    <div class="trust-item"><strong>MCX-linked</strong><span>Transparent live pricing</span></div>
+  </div>
+</section>
+
+<section id="why-gold" class="section">
+  <div class="container">
+    <h2 class="section-title">Why invest in gold?</h2>
+    <p class="section-sub">Gold has been India's favourite store of value for generations — here's the case in numbers and in principle.</p>
+
+    <div class="chart-panel">
+      <h3 class="chart-title">Indian 24K gold price — MCX-linked market rate</h3>
+      <p class="chart-sub">₹ per gram, duty-inclusive · last 12 months · the May 2026 step reflects the import-duty hike from 6% to 15%</p>
+      <div id="priceChart" class="price-chart" aria-label="Line chart of the Indian 24K gold rate per gram over the last 12 months"></div>
+      <details class="chart-data">
+        <summary>View data</summary>
+        <div class="table-wrap">
+          <table class="purchase-table" id="priceTable">
+            <thead><tr><th>Month</th><th>Rate (₹/g)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+
+    <div id="whyGoldCards" class="scheme-grid" style="margin-top: 28px;"></div>
+  </div>
+</section>
+
+<section id="why" class="section section-alt">
   <div class="container">
     <h2 class="section-title">Why invest with Aparanji</h2>
     <p class="section-sub">A single, simple product: digital gold. No schemes, no installment lock-ins — just gold, at the rate you can see.</p>
@@ -62,7 +96,7 @@
   </div>
 </section>
 
-<section id="how" class="section section-alt">
+<section id="how" class="section">
   <div class="container">
     <h2 class="section-title">How it works</h2>
     <p class="section-sub">Three steps from sign-up to holding gold.</p>
@@ -70,7 +104,7 @@
   </div>
 </section>
 
-<section id="calculator" class="section">
+<section id="calculator" class="section section-alt">
   <div class="container">
     <h2 class="section-title">Gold calculator</h2>
     <p class="section-sub">See exactly how many grams your money buys at today's rate — or what a gram target costs.</p>
@@ -94,7 +128,7 @@
   </div>
 </section>
 
-<section id="invest" class="section section-alt">
+<section id="invest" class="section">
   <div class="container">
     <h2 class="section-title">Start investing</h2>
     <p class="section-sub">Create your KYC-verified account, then buy and track your gold from your personal dashboard.</p>
@@ -115,7 +149,7 @@
   </div>
 </section>
 
-<section id="faq" class="section">
+<section id="faq" class="section section-alt">
   <div class="container">
     <h2 class="section-title">Frequently asked questions</h2>
     <div class="faq-list">
@@ -169,6 +203,7 @@
   </div>
 </footer>
 
+<script src="chart.js"></script>
 <script src="app.js"></script>
 <script src="coins.js"></script>
 </body>

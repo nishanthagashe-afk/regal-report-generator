@@ -39,6 +39,28 @@
   pollRate();
   setInterval(pollRate, 1000);
 
+  function renderWhyGold(cards) {
+    const container = document.getElementById("whyGoldCards");
+    container.innerHTML = "";
+    (cards || []).forEach((c) => {
+      const card = el("div", "scheme-card");
+      card.appendChild(el("h3", null, c.title));
+      card.appendChild(el("p", "desc", c.description));
+      container.appendChild(card);
+    });
+  }
+
+  async function loadPriceChart() {
+    try {
+      const res = await fetch("/api/rate-history");
+      const data = await res.json();
+      window.renderPriceChart(document.getElementById("priceChart"), data.points);
+      window.renderPriceTable(document.querySelector("#priceTable tbody"), data.points);
+    } catch (e) {
+      document.getElementById("priceChart").textContent = "Price history unavailable right now.";
+    }
+  }
+
   function renderFeatures(features) {
     const container = document.getElementById("featureCards");
     container.innerHTML = "";
@@ -134,6 +156,8 @@
       return;
     }
 
+    renderWhyGold(config.whyGold);
+    loadPriceChart();
     renderFeatures(config.features);
     renderSteps(config.steps);
     document.getElementById("calcAmount").placeholder = `Min ₹${config.minPurchaseAmount}`;

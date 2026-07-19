@@ -8,6 +8,32 @@
   "lockInMonths": 11,
   "makingChargePercent": 1,
   "purity": "24K 999",
+  "whyGold": [
+    {
+      "title": "A hedge against inflation",
+      "description": "When prices rise, the rupee buys less — but gold has historically held its purchasing power. Money parked in gold tends to keep pace with the cost of living in a way idle cash cannot."
+    },
+    {
+      "title": "The classic safe haven",
+      "description": "In times of market turmoil, currency weakness, or global uncertainty, investors move to gold. It has held value through wars, recessions, and crashes for centuries."
+    },
+    {
+      "title": "Always liquid",
+      "description": "Gold is one of the most liquid assets in India — instantly understood, easily valued, and convertible into cash, coins, or jewellery in any town, at any time."
+    },
+    {
+      "title": "True diversification",
+      "description": "Gold often moves differently from shares, mutual funds, and fixed deposits. A gold allocation cushions your overall savings when other investments dip."
+    },
+    {
+      "title": "Part of every Indian milestone",
+      "description": "Weddings, births, festivals — gold is the one asset that is also a gift, an heirloom, and a tradition. What you accumulate today becomes tomorrow's celebration."
+    },
+    {
+      "title": "Effortless in digital form",
+      "description": "No lockers, no purity worries, no minimum of a full coin. Digital gold lets you build your holding from ₹100 at a time, secured against your account until you redeem."
+    }
+  ],
   "features": [
     {
       "title": "Start from just ₹100",

@@ -19,6 +19,7 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, "data");
 const CONFIG_PATH = path.join(DATA_DIR, "config.json");
 const CUSTOMERS_PATH = path.join(DATA_DIR, "customers.json");
+const RATE_HISTORY_PATH = path.join(DATA_DIR, "rate-history.json");
 const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
 const RECEIPTS_DIR = path.join(DATA_DIR, "receipts");
 const INVOICES_DIR = path.join(DATA_DIR, "invoices");
@@ -146,6 +147,7 @@ async function refreshLiveRate() {
       asOf: new Date().toISOString(),
       fetchedAt: Date.now(),
     };
+    recordRatePoint(rateCache.ratePerGram);
     return;
   } catch {
     /* fall through to the derived rate */
@@ -170,6 +172,26 @@ async function refreshLiveRate() {
     asOf: new Date().toISOString(),
     fetchedAt: Date.now(),
   };
+  recordRatePoint(rateCache.ratePerGram);
+}
+
+// Append at most one history point per day from the live feed, so the price
+// graph keeps extending itself once the site is deployed.
+function recordRatePoint(ratePerGram) {
+  try {
+    const history = JSON.parse(fs.readFileSync(RATE_HISTORY_PATH, "utf8"));
+    const today = new Date().toISOString().slice(0, 10);
+    const last = history.points[history.points.length - 1];
+    if (last && last.date === today) {
+      last.ratePerGram = ratePerGram;
+    } else {
+      history.points.push({ date: today, ratePerGram });
+    }
+    if (history.points.length > 1000) history.points = history.points.slice(-1000);
+    fs.writeFileSync(RATE_HISTORY_PATH, JSON.stringify(history, null, 2));
+  } catch (e) {
+    console.error("Rate history write failed:", e.message);
+  }
 }
 
 async function getRate() {
@@ -604,6 +626,21 @@ app.get("/api/config", (req, res) => res.json(loadConfig()));
 app.get("/api/rate", async (req, res) => {
   const { ratePerGram, source, asOf } = await getRate();
   res.json({ ratePerGram24K: ratePerGram, source, asOf });
+});
+
+// Rate history for the price graph (seed points + daily live appends).
+app.get("/api/rate-history", async (req, res) => {
+  let points = [];
+  try {
+    points = JSON.parse(fs.readFileSync(RATE_HISTORY_PATH, "utf8")).points;
+  } catch (e) {
+    /* serve just today's rate below */
+  }
+  const { ratePerGram } = await getRate();
+  const today = new Date().toISOString().slice(0, 10);
+  const last = points[points.length - 1];
+  if (!last || last.date !== today) points = [...points, { date: today, ratePerGram }];
+  res.json({ points });
 });
 
 // Convert between rupees and grams at today's rate. Accepts { amount } or { grams }.

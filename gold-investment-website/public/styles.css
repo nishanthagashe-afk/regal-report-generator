@@ -184,6 +184,61 @@ h1, h2, h3, h4 { font-family: Georgia, "Times New Roman", serif; margin: 0 0 12p
 .rate-row span:first-child { font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; font-size: 12px; }
 .rate-date { margin-left: auto; opacity: 0.85; font-size: 12px; }
 
+/* Trust strip */
+.trust-strip {
+  background: #fff;
+  border-bottom: 1px solid var(--cream-dim);
+}
+.trust-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  padding: 20px 24px;
+  text-align: center;
+}
+.trust-item strong {
+  display: block;
+  font-family: Georgia, serif;
+  font-size: 21px;
+  color: var(--gold-dark);
+}
+.trust-item span { font-size: 13px; color: var(--muted); }
+
+/* Price chart */
+.chart-panel {
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 26px;
+  max-width: 820px;
+  margin: 0 auto;
+}
+.chart-title { font-size: 19px; margin-bottom: 4px; }
+.chart-sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+.price-chart-svg { display: block; width: 100%; height: auto; }
+.chart-grid { stroke: #ece4d0; stroke-width: 1; }
+.chart-axis-text { fill: var(--muted); font-size: 11.5px; }
+.chart-line { fill: none; stroke: #a87b1a; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart-end-dot { fill: #a87b1a; stroke: #fff; stroke-width: 2; }
+.chart-end-label { fill: #a87b1a; font-size: 13px; font-weight: 700; }
+.chart-annotation-line { stroke: #b8b0a0; stroke-width: 1; stroke-dasharray: 4 4; }
+.chart-annotation-text { fill: var(--muted); font-size: 11px; }
+.chart-crosshair { stroke: #b8b0a0; stroke-width: 1; stroke-dasharray: 3 3; }
+.chart-tooltip {
+  position: absolute;
+  transform: translate(-50%, -140%);
+  background: var(--ink);
+  color: var(--cream);
+  font-size: 12.5px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
+}
+.chart-data { margin-top: 12px; }
+.chart-data summary { cursor: pointer; font-size: 13.5px; color: var(--gold-dark); font-weight: 600; }
+
 /* Sections */
 .section { padding: 72px 0; }
 .section-alt { background: var(--cream-dim); }
@@ -565,10 +620,13 @@ input[type="file"] {
 @media (prefers-color-scheme: dark) {
   body { background: #14110d; color: #f1ead9; }
   .section-alt { background: #1b1712; }
-  .scheme-card, .step-card, .calc-box, .calc-result, .enroll-form, .faq-list details {
+  .scheme-card, .step-card, .calc-box, .calc-result, .enroll-form, .faq-list details,
+  .chart-panel, .trust-strip {
     background: #221d16;
     color: #f1ead9;
   }
+  .chart-grid { stroke: #3a3226; }
+  .chart-end-dot { stroke: #221d16; }
   .scheme-card p.desc, .step-card .desc, .section-sub, .calc-field label, .form-error { color: #c9bfa8; }
   input, select { background: #2a241c; color: #f1ead9; border-color: #4a3f2c; }
 }
