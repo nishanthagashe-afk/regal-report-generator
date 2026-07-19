@@ -15,10 +15,12 @@ at the live market rate, starting from ₹100.
 
 ## Features
 
-- **Live 24K rate** — the server fetches spot gold (XAU/USD) and USD→INR from
-  free market APIs (gold-api.com, open.er-api.com), caches for 30 s, and clients
-  poll `/api/rate` every second. If the feed is unreachable, the configured rate
-  in `data/config.json` is served as a clearly-labelled fallback.
+- **Live Indian 24K rate** — the server fetches the INR gold price live
+  (goldprice.org INR feed, falling back to spot XAU/USD × USD/INR), then applies
+  the configured **import duty** and **local premium** to land on the Indian
+  market rate (IBJA/MCX-style), caches for 30 s, and clients poll `/api/rate`
+  every second. If every feed is unreachable, the configured rate in
+  `data/config.json` is served as a clearly-labelled fallback.
 - **Account creation with KYC** — name, mobile, email, Aadhaar number, PAN, and
   uploaded copies of both documents (JPG/PNG/PDF, max 5 MB each). Duplicate
   mobile/PAN registrations are rejected; accounts start as "Under verification".
@@ -56,7 +58,10 @@ node server.js
 
 Edit `data/config.json`:
 - `goldRatePerGram24K` / `updatedOn` — fallback rate when the live feed is down
-- `rateSpreadPercent` — optional margin applied on top of the live spot rate
+- `importDutyPercent` (default 6) — customs duty applied on top of INR spot to
+  reach the landed Indian rate
+- `localPremiumPercent` — extra local market premium; tune it so the displayed
+  rate tracks the IBJA/MCX published rate in your market
 - `gstPercent`, `lockInMonths`, `makingChargePercent` — scheme terms
 - `minPurchaseAmount` — minimum per purchase
 

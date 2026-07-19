@@ -35,10 +35,13 @@ function loadConfig() {
   return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
 }
 
-// ── Live 24K gold rate ───────────────────────────────────────────────────────
-// Spot gold (XAU/USD) and USD→INR are fetched from free market APIs and cached;
-// clients poll /api/rate every second and get the cached value. If the feed is
-// unreachable, the configured rate in config.json is used as a fallback.
+// ── Live Indian 24K gold rate ────────────────────────────────────────────────
+// The INR gold price is fetched live (goldprice.org INR feed first, with a
+// spot × USD/INR fallback chain), then adjusted to the Indian market rate by
+// applying import duty and local premium from config — Indian published rates
+// (IBJA/MCX) sit above converted international spot by roughly these margins.
+// Clients poll /api/rate every second and get the cached value. If every feed
+// is unreachable, the configured rate in config.json is used as a fallback.
 const GRAMS_PER_TROY_OUNCE = 31.1034768;
 const RATE_REFRESH_MS = 30 * 1000;
 
@@ -56,7 +59,16 @@ async function fetchJson(url, timeoutMs = 5000) {
   }
 }
 
-async function refreshLiveRate() {
+// INR per troy ounce, straight from an INR-denominated feed.
+async function fetchInrPerOunceDirect() {
+  const data = await fetchJson("https://data-asg.goldprice.org/dbXRates/INR");
+  const inrPerOunce = Number(data.items?.[0]?.xauPrice);
+  if (!Number.isFinite(inrPerOunce)) throw new Error("Malformed INR gold data");
+  return inrPerOunce;
+}
+
+// Fallback chain: international spot × USD/INR.
+async function fetchInrPerOunceViaUsd() {
   const [gold, fx] = await Promise.all([
     fetchJson("https://api.gold-api.com/price/XAU"),
     fetchJson("https://open.er-api.com/v6/latest/USD"),
@@ -66,9 +78,25 @@ async function refreshLiveRate() {
   if (!Number.isFinite(usdPerOunce) || !Number.isFinite(inrPerUsd)) {
     throw new Error("Malformed market data");
   }
-  const spread = 1 + (loadConfig().rateSpreadPercent || 0) / 100;
+  return usdPerOunce * inrPerUsd;
+}
+
+async function refreshLiveRate() {
+  let inrPerOunce;
+  try {
+    inrPerOunce = await fetchInrPerOunceDirect();
+  } catch {
+    inrPerOunce = await fetchInrPerOunceViaUsd();
+  }
+
+  // Landed Indian market rate: customs import duty + local market premium on
+  // top of the INR spot price. Tune both in config.json to track IBJA/MCX.
+  const config = loadConfig();
+  const duty = 1 + (config.importDutyPercent || 0) / 100;
+  const premium = 1 + (config.localPremiumPercent || 0) / 100;
+
   rateCache = {
-    ratePerGram: Math.round((usdPerOunce / GRAMS_PER_TROY_OUNCE) * inrPerUsd * spread),
+    ratePerGram: Math.round((inrPerOunce / GRAMS_PER_TROY_OUNCE) * duty * premium),
     source: "live",
     asOf: new Date().toISOString(),
     fetchedAt: Date.now(),
