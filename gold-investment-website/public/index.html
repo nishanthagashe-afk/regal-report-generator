@@ -23,6 +23,7 @@
       <a href="#why">Why Aparanji</a>
       <a href="#how">How it works</a>
       <a href="#calculator">Calculator</a>
+      <a href="#daily">Savings plans</a>
       <a href="#faq">FAQ</a>
       <a href="account.html">My Account</a>
     </nav>
@@ -82,6 +83,39 @@
       </details>
     </div>
 
+    <div class="calc-box rate-calc">
+      <h3 class="chart-title">Gold rate calculator</h3>
+      <p class="chart-sub">What is gold worth right now? Pick a purity, enter grams — priced live.</p>
+      <div class="calc-field-group">
+        <div class="calc-field">
+          <label for="rcPurity">Purity</label>
+          <select id="rcPurity">
+            <option value="1" selected>24K (999)</option>
+            <option value="0.916">22K (916)</option>
+            <option value="0.75">18K (750)</option>
+          </select>
+        </div>
+        <div class="calc-field">
+          <label for="rcGrams">Weight (grams)</label>
+          <input type="number" id="rcGrams" min="0" step="0.1" value="10" />
+        </div>
+      </div>
+      <dl id="rcResult" class="rc-result"></dl>
+    </div>
+
+    <div class="chart-panel rates-panel">
+      <h3 class="chart-title">Today's gold rates in India</h3>
+      <p class="chart-sub">Live, duty-inclusive market rates by purity — the same rate every Aparanji purchase uses.</p>
+      <div class="table-wrap">
+        <table class="purchase-table" id="ratesTable">
+          <thead>
+            <tr><th>Purity</th><th>1 gram</th><th>8 grams</th><th>10 grams</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
     <div id="whyGoldCards" class="scheme-grid" style="margin-top: 28px;"></div>
   </div>
 </section>
@@ -128,7 +162,33 @@
   </div>
 </section>
 
-<section id="invest" class="section">
+<section id="daily" class="section">
+  <div class="container">
+    <h2 class="section-title">Save daily or monthly. Build gold on autopilot.</h2>
+    <p class="section-sub">Small regular amounts quietly add up to real gold. Pick a rhythm, slide, and see what your habit is worth.</p>
+
+    <div class="calc-box daily-box">
+      <div class="freq-toggle" role="tablist">
+        <button type="button" id="freqDaily" class="freq-btn active">Daily</button>
+        <button type="button" id="freqMonthly" class="freq-btn">Monthly</button>
+      </div>
+      <div class="daily-slider-row">
+        <label for="dailyAmount" id="dailyAmountCaption">Daily saving</label>
+        <strong id="dailyAmountLabel">₹100 / day</strong>
+      </div>
+      <input type="range" id="dailyAmount" min="10" max="1000" step="10" value="100" />
+      <div class="daily-stats">
+        <div><span class="daily-stat-label">Per month</span><strong id="dailyMonthly">—</strong></div>
+        <div><span class="daily-stat-label">Per year</span><strong id="dailyYearly">—</strong></div>
+        <div><span class="daily-stat-label">≈ Gold per year</span><strong id="dailyGrams">—</strong></div>
+      </div>
+      <p class="dash-note">Projection at today's live rate, before GST. Start a plan from your account dashboard — our team helps you set up a UPI Autopay mandate.</p>
+      <a href="account.html" class="btn btn-primary">Start a savings plan</a>
+    </div>
+  </div>
+</section>
+
+<section id="invest" class="section section-alt">
   <div class="container">
     <h2 class="section-title">Start investing</h2>
     <p class="section-sub">Create your KYC-verified account, then buy and track your gold from your personal dashboard.</p>
@@ -149,7 +209,7 @@
   </div>
 </section>
 
-<section id="faq" class="section section-alt">
+<section id="faq" class="section">
   <div class="container">
     <h2 class="section-title">Frequently asked questions</h2>
     <div class="faq-list">

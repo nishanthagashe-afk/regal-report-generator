@@ -19,12 +19,19 @@
     return node;
   }
 
+  let liveRate = null;
+  let gstPercent = 3;
+
   // ── Live rate ticker (polls every second) ──────────────────────────────────
   async function pollRate() {
     try {
       const res = await fetch("/api/rate");
       const data = await res.json();
       if (!res.ok) return;
+      liveRate = data.ratePerGram24K;
+      updateRateCalc();
+      updateDailyProjection();
+      updateRatesTable();
       document.getElementById("rate24k").textContent = `24K: ${money(data.ratePerGram24K)}/g`;
       document.getElementById("rateDate").textContent =
         data.source === "jab"
@@ -38,6 +45,75 @@
   }
   pollRate();
   setInterval(pollRate, 1000);
+
+  // ── Gold rate calculator (why-gold tab): purity × grams at the live rate ───
+  function updateRateCalc() {
+    const result = document.getElementById("rcResult");
+    if (!result || !liveRate) return;
+    const factor = Number(document.getElementById("rcPurity").value);
+    const grams = Number(document.getElementById("rcGrams").value);
+    result.innerHTML = "";
+    if (!Number.isFinite(grams) || grams <= 0) return;
+    const perGram = liveRate * factor;
+    const value = grams * perGram;
+    const gst = value * gstPercent / 100;
+    const row = (l, v, hi) => {
+      result.appendChild(el("dt", null, l));
+      result.appendChild(el("dd", hi ? "highlight" : null, v));
+    };
+    row("Rate for this purity", money(perGram) + "/g");
+    row("Gold value", money(value));
+    row(`GST (${gstPercent}%)`, money(gst));
+    row("Total", money(value + gst), true);
+  }
+
+  // ── Today's gold rates table (24K/22K/18K × 1g/8g/10g) ─────────────────────
+  function updateRatesTable() {
+    const tbody = document.querySelector("#ratesTable tbody");
+    if (!tbody || !liveRate) return;
+    tbody.innerHTML = "";
+    [["24K (999)", 1], ["22K (916)", 0.916], ["18K (750)", 0.75]].forEach(([label, factor]) => {
+      const perGram = liveRate * factor;
+      const tr = document.createElement("tr");
+      [label, money(perGram), money(perGram * 8), money(perGram * 10)].forEach((v, i) => {
+        const td = el("td", i > 0 ? "num" : null, v);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ── Daily / monthly saving projection ──────────────────────────────────────
+  let savingFreq = "daily";
+
+  function setSavingFreq(freq) {
+    savingFreq = freq;
+    const slider = document.getElementById("dailyAmount");
+    document.getElementById("freqDaily").classList.toggle("active", freq === "daily");
+    document.getElementById("freqMonthly").classList.toggle("active", freq === "monthly");
+    document.getElementById("dailyAmountCaption").textContent =
+      freq === "daily" ? "Daily saving" : "Monthly saving";
+    if (freq === "daily") {
+      slider.min = 10; slider.max = 1000; slider.step = 10; slider.value = 100;
+    } else {
+      slider.min = 500; slider.max = 50000; slider.step = 500; slider.value = 5000;
+    }
+    updateDailyProjection();
+  }
+
+  function updateDailyProjection() {
+    const slider = document.getElementById("dailyAmount");
+    if (!slider || !liveRate) return;
+    const amount = Number(slider.value);
+    const perDay = savingFreq === "daily";
+    document.getElementById("dailyAmountLabel").textContent =
+      money(amount) + (perDay ? " / day" : " / month");
+    const monthly = perDay ? amount * 30 : amount;
+    const yearly = perDay ? amount * 365 : amount * 12;
+    document.getElementById("dailyMonthly").textContent = money(monthly);
+    document.getElementById("dailyYearly").textContent = money(yearly);
+    document.getElementById("dailyGrams").textContent = (yearly / liveRate).toFixed(2) + " g";
+  }
 
   function renderWhyGold(cards) {
     const container = document.getElementById("whyGoldCards");
@@ -155,6 +231,13 @@
         '<p class="loading">Could not load. Please refresh the page.</p>';
       return;
     }
+    gstPercent = config.gstPercent;
+
+    document.getElementById("rcPurity").addEventListener("change", updateRateCalc);
+    document.getElementById("rcGrams").addEventListener("input", updateRateCalc);
+    document.getElementById("dailyAmount").addEventListener("input", updateDailyProjection);
+    document.getElementById("freqDaily").addEventListener("click", () => setSavingFreq("daily"));
+    document.getElementById("freqMonthly").addEventListener("click", () => setSavingFreq("monthly"));
 
     renderWhyGold(config.whyGold);
     loadPriceChart();
