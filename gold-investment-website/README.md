@@ -58,8 +58,9 @@ node server.js
 
 Edit `data/config.json`:
 - `goldRatePerGram24K` / `updatedOn` — fallback rate when the live feed is down
-- `importDutyPercent` (default 6) — customs duty applied on top of INR spot to
-  reach the landed Indian rate
+- `importDutyPercent` — customs duty applied on top of INR spot to reach the
+  landed Indian rate (15% since 13 May 2026: 10% BCD + 5% AIDC; update here
+  whenever the duty changes)
 - `localPremiumPercent` — extra local market premium; tune it so the displayed
   rate tracks the IBJA/MCX published rate in your market
 - `gstPercent`, `lockInMonths`, `makingChargePercent` — scheme terms
