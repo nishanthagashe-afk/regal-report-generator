@@ -4,6 +4,7 @@ const fs = require("fs");
 const crypto = require("crypto");
 const multer = require("multer");
 const PDFDocument = require("pdfkit");
+const QRCode = require("qrcode");
 
 // Honor HTTP(S)_PROXY env vars for outbound market-data fetches, if undici is available.
 try {
@@ -463,8 +464,28 @@ function generateReceiptPdf(customer, purchase, runningTotals, config) {
       left, y
     );
 
+    // How to pay
+    const pay = config.payment;
+    if (pay) {
+      y += 30;
+      doc.fillColor(goldDark).font("Helvetica-Bold").fontSize(11).text("HOW TO PAY", left, y);
+      y += 18;
+      doc.fillColor(ink).font("Helvetica").fontSize(10)
+        .text(`UPI: ${pay.vpa}   ·   MMID: ${pay.mmid}`, left, y);
+      y += 14;
+      doc.text(
+        `Bank transfer (NEFT/IMPS): ${pay.accountName} · ${pay.bankName}, ${pay.branch} · ` +
+        `A/c ${pay.accountNumber} · IFSC ${pay.ifsc}`,
+        left, y, { width: right - left }
+      );
+      y = doc.y + 6;
+      doc.fillColor(muted).fontSize(9)
+        .text(`Please quote receipt number ${purchase.id} in the payment remarks.`, left, y);
+      y = doc.y;
+    }
+
     // Scheme terms
-    y += 34;
+    y += 30;
     doc.fillColor(muted).font("Helvetica").fontSize(9).text(
       `Scheme terms: ${config.lockInMonths}-month lock-in from your first purchase. On maturity, redeem as gold coins ` +
       `(${config.makingChargePercent}% making charge at closure) or withdraw the equivalent value in money. ` +
@@ -626,6 +647,37 @@ app.get("/api/config", (req, res) => res.json(loadConfig()));
 app.get("/api/rate", async (req, res) => {
   const { ratePerGram, source, asOf } = await getRate();
   res.json({ ratePerGram24K: ratePerGram, source, asOf });
+});
+
+// UPI deep link for a payment (opens GPay/PhonePe/Paytm etc. on mobile).
+function buildUpiLink(amount, note) {
+  const { payment } = loadConfig();
+  const params = new URLSearchParams({
+    pa: payment.vpa,
+    pn: payment.accountName,
+    am: String(amount),
+    cu: "INR",
+    tn: note,
+  });
+  return "upi://pay?" + params.toString();
+}
+
+// QR code (PNG) for a UPI payment — scan from any UPI app on desktop.
+app.get("/api/payment-qr", async (req, res) => {
+  const amount = Number(req.query.amount);
+  const note = String(req.query.note || "Aparanji gold purchase").slice(0, 60);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 10000000) {
+    return res.status(400).json({ error: "Invalid amount" });
+  }
+  try {
+    const png = await QRCode.toBuffer(buildUpiLink(Math.round(amount), note), {
+      type: "png", width: 280, margin: 2,
+    });
+    res.set("Content-Type", "image/png").set("Cache-Control", "no-store").send(png);
+  } catch (e) {
+    console.error("QR generation failed:", e.message);
+    res.status(500).json({ error: "Could not generate the payment QR" });
+  }
 });
 
 // Rate history for the price graph (seed points + daily live appends).
@@ -792,9 +844,15 @@ app.post("/api/purchase", requireAuth, async (req, res) => {
     console.error("Receipt generation failed:", e.message);
   }
 
+  const totalPayable = amount + gst;
   res.json({
-    message: `Purchase recorded — total payable ₹${(amount + gst).toLocaleString("en-IN")} (incl. ${config.gstPercent}% GST). Our team will contact you to collect payment and confirm the credit.`,
+    message: `Purchase recorded — total payable ₹${totalPayable.toLocaleString("en-IN")} (incl. ${config.gstPercent}% GST). Pay via UPI or bank transfer below; your grams are confirmed once payment is received.`,
     receiptId: purchase.id,
+    payment: {
+      amount: totalPayable,
+      upiLink: buildUpiLink(totalPayable, `Aparanji ${purchase.id}`),
+      qrUrl: `/api/payment-qr?amount=${totalPayable}&note=${encodeURIComponent("Aparanji " + purchase.id)}`,
+    },
     account: await accountView(customer),
   });
 });

@@ -90,9 +90,32 @@
       const config = await api("/api/config");
       gstPercent = config.gstPercent;
       document.getElementById("buyAmount").placeholder = `Min ₹${config.minPurchaseAmount}`;
+      renderPaymentDetails(config.payment);
     } catch (e) {
       /* defaults are fine */
     }
+  }
+
+  function renderPaymentDetails(pay) {
+    if (!pay) return;
+    const dl = document.getElementById("payDetailsList");
+    dl.innerHTML = "";
+    const rows = [
+      ["UPI ID (VPA)", pay.vpa],
+      ["Bank", pay.bankName],
+      ["Account name", pay.accountName],
+      ["Account number", pay.accountNumber],
+      ["Branch", pay.branch],
+      ["IFSC", pay.ifsc],
+      ["MMID", pay.mmid],
+    ];
+    rows.forEach(([label, value]) => {
+      const dt = document.createElement("dt");
+      dt.textContent = label;
+      const dd = document.createElement("dd");
+      dd.textContent = value;
+      dl.append(dt, dd);
+    });
   }
 
   // ── Registration ───────────────────────────────────────────────────────────
@@ -355,6 +378,12 @@
         success.appendChild(link);
       }
       success.hidden = false;
+      if (data.payment) {
+        document.getElementById("payAmount").textContent = money(data.payment.amount);
+        document.getElementById("payUpiBtn").href = data.payment.upiLink;
+        document.getElementById("payQr").src = data.payment.qrUrl;
+        document.getElementById("payNow").hidden = false;
+      }
       buyAmountInput.value = "";
       document.getElementById("buyPreview").textContent = "";
     } catch (err) {

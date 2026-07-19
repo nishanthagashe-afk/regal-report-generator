@@ -535,6 +535,29 @@ input[type="file"] {
 
 .table-wrap { overflow-x: auto; }
 .receipt-link { color: var(--gold-dark); font-weight: 600; }
+
+/* Payment */
+.pay-now {
+  margin-top: 16px;
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+}
+.pay-now h4 { margin-bottom: 12px; font-size: 17px; }
+.pay-qr { margin-top: 14px; }
+.pay-qr img { border: 1px solid var(--cream-dim); border-radius: 8px; background: #fff; }
+.pay-details { margin-top: 16px; }
+.pay-details summary { cursor: pointer; font-size: 13.5px; color: var(--gold-dark); font-weight: 600; }
+.pay-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 12px 0 8px;
+  font-size: 13.5px;
+}
+.pay-dl dt { color: var(--muted); }
+.pay-dl dd { margin: 0; font-weight: 600; }
 .purchase-table {
   width: 100%;
   border-collapse: collapse;

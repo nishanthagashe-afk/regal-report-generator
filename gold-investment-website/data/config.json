@@ -8,6 +8,15 @@
   "lockInMonths": 11,
   "makingChargePercent": 1,
   "purity": "24K 999",
+  "payment": {
+    "bankName": "Federal Bank",
+    "accountNumber": "13340200113079",
+    "accountName": "VALANKA PRIVATE LIMITED",
+    "branch": "Bangalore / Rajaji Nagar",
+    "ifsc": "FDRL0001334",
+    "mmid": "9049079",
+    "vpa": "valanka@federal"
+  },
   "whyGold": [
     {
       "title": "A hedge against inflation",
