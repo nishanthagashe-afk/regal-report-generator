@@ -3,6 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 const multer = require("multer");
+const PDFDocument = require("pdfkit");
 
 // Honor HTTP(S)_PROXY env vars for outbound market-data fetches, if undici is available.
 try {
@@ -19,8 +20,10 @@ const DATA_DIR = path.join(__dirname, "data");
 const CONFIG_PATH = path.join(DATA_DIR, "config.json");
 const CUSTOMERS_PATH = path.join(DATA_DIR, "customers.json");
 const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
+const RECEIPTS_DIR = path.join(DATA_DIR, "receipts");
 
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+fs.mkdirSync(RECEIPTS_DIR, { recursive: true });
 
 // Tokens are signed with this secret; set SESSION_SECRET in production so
 // logins survive restarts.
@@ -250,6 +253,7 @@ async function accountView(customer) {
     kycStatus: customer.kycVerified ? "Verified" : "Under verification",
     createdAt: customer.createdAt,
     purchases: customer.purchases.map((p) => ({
+      id: p.id,
       date: p.date,
       amount: p.amount,
       gst: p.gst || 0,
@@ -287,6 +291,117 @@ async function accountView(customer) {
     todayRatePerGram: rate,
     rateSource,
     rateAsOf,
+  };
+}
+
+// ── PDF receipt voucher ──────────────────────────────────────────────────────
+// Built-in PDF fonts have no rupee glyph, so amounts use "Rs." on paper.
+const rs = (n) => "Rs. " + Number(n).toLocaleString("en-IN");
+
+function generateReceiptPdf(customer, purchase, runningTotals, config) {
+  return new Promise((resolve, reject) => {
+    const filePath = path.join(RECEIPTS_DIR, `${purchase.id}.pdf`);
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const stream = fs.createWriteStream(filePath);
+    doc.pipe(stream);
+
+    const ink = "#16130f";
+    const gold = "#c9a24b";
+    const goldDark = "#8a6d24";
+    const muted = "#6b6355";
+    const pageWidth = doc.page.width;
+    const left = 50;
+    const right = pageWidth - 50;
+
+    // Header band
+    doc.rect(0, 0, pageWidth, 110).fill(ink);
+    doc.circle(left + 22, 55, 22).fill(gold);
+    doc.fillColor(ink).font("Times-Bold").fontSize(24).text("A", left + 14, 42);
+    doc.fillColor("#faf6ec").font("Times-Bold").fontSize(22).text("Aparanji", left + 58, 36);
+    doc.fillColor(gold).font("Helvetica").fontSize(9)
+      .text("DIGITAL GOLD INVESTMENT", left + 58, 64, { characterSpacing: 1 });
+    doc.fillColor("#faf6ec").font("Helvetica-Bold").fontSize(15)
+      .text("RECEIPT VOUCHER", left, 48, { align: "right", width: right - left });
+
+    // Receipt meta
+    let y = 140;
+    doc.fillColor(muted).font("Helvetica").fontSize(10);
+    doc.text(`Receipt No: ${purchase.id}`, left, y);
+    const when = new Date(purchase.date).toLocaleString("en-IN", {
+      day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+    doc.text(`Date: ${when}`, left, y, { align: "right", width: right - left });
+
+    // Customer block
+    y += 30;
+    doc.fillColor(goldDark).font("Helvetica-Bold").fontSize(11).text("RECEIVED FROM", left, y);
+    y += 18;
+    doc.fillColor(ink).font("Helvetica-Bold").fontSize(12).text(customer.name, left, y);
+    y += 16;
+    doc.fillColor(muted).font("Helvetica").fontSize(10)
+      .text(`Account: ${customer.accountId}   ·   Mobile: ${customer.mobile}   ·   Email: ${customer.email}`, left, y);
+    y += 14;
+    doc.text(`PAN: ${maskPan(customer.pan)}   ·   Aadhaar: ${maskAadhaar(customer.aadhaar)}`, left, y);
+
+    // Amount table
+    y += 34;
+    const rows = [
+      ["Gold value", rs(purchase.amount)],
+      [`GST (${config.gstPercent}%)`, rs(purchase.gst)],
+      ["Total amount received", rs(purchase.totalPaid)],
+      ["Rate applied (24K 999)", rs(purchase.ratePerGram) + " / gram"],
+      ["Gold credited", purchase.grams.toFixed(4) + " g"],
+    ];
+    const rowH = 26;
+    rows.forEach(([label, value], i) => {
+      const rowY = y + i * rowH;
+      if (i % 2 === 0) doc.rect(left, rowY, right - left, rowH).fill("#faf6ec");
+      const bold = label.startsWith("Total") || label.startsWith("Gold credited");
+      doc.fillColor(bold ? ink : muted).font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(11)
+        .text(label, left + 12, rowY + 7);
+      doc.fillColor(bold ? goldDark : ink).font("Helvetica-Bold").fontSize(11)
+        .text(value, left, rowY + 7, { align: "right", width: right - left - 12 });
+    });
+    y += rows.length * rowH;
+    doc.moveTo(left, y).lineTo(right, y).lineWidth(1.5).strokeColor(gold).stroke();
+
+    // Balance after this deposit
+    y += 20;
+    doc.fillColor(goldDark).font("Helvetica-Bold").fontSize(11).text("ACCOUNT BALANCE AFTER THIS DEPOSIT", left, y);
+    y += 18;
+    doc.fillColor(ink).font("Helvetica").fontSize(10.5).text(
+      `Total gold held: ${runningTotals.grams.toFixed(4)} g   ·   Total invested: ${rs(runningTotals.invested)} (+ ${rs(runningTotals.gst)} GST)`,
+      left, y
+    );
+
+    // Scheme terms
+    y += 34;
+    doc.fillColor(muted).font("Helvetica").fontSize(9).text(
+      `Scheme terms: ${config.lockInMonths}-month lock-in from your first purchase. On maturity, redeem as gold coins ` +
+      `(${config.makingChargePercent}% making charge at closure) or withdraw the equivalent value in money. ` +
+      `Gold rate is the Indian market rate published at the time of purchase.`,
+      left, y, { width: right - left }
+    );
+
+    // Footer
+    doc.fillColor(muted).font("Helvetica-Oblique").fontSize(8.5).text(
+      "This is a computer-generated receipt and does not require a signature.",
+      left, doc.page.height - 70, { align: "center", width: right - left }
+    );
+
+    doc.end();
+    stream.on("finish", () => resolve(filePath));
+    stream.on("error", reject);
+  });
+}
+
+// Totals up to and including the given purchase index.
+function totalsUpTo(purchases, index) {
+  const slice = purchases.slice(0, index + 1);
+  return {
+    invested: slice.reduce((s, p) => s + p.amount, 0),
+    gst: slice.reduce((s, p) => s + (p.gst || 0), 0),
+    grams: slice.reduce((s, p) => s + p.grams, 0),
   };
 }
 
@@ -431,7 +546,7 @@ app.post("/api/purchase", requireAuth, async (req, res) => {
   const gst = Math.round((amount * config.gstPercent) / 100);
   const customers = loadCustomers();
   const customer = customers.find((c) => c.accountId === req.customer.accountId);
-  customer.purchases.push({
+  const purchase = {
     id: "PUR-" + crypto.randomBytes(4).toString("hex").toUpperCase(),
     date: new Date().toISOString(),
     amount,
@@ -439,13 +554,48 @@ app.post("/api/purchase", requireAuth, async (req, res) => {
     totalPaid: amount + gst,
     ratePerGram: rate,
     grams: Number((amount / rate).toFixed(4)),
-  });
+  };
+  customer.purchases.push(purchase);
   saveCustomers(customers);
+
+  // Generate the receipt voucher; a PDF hiccup must not fail the deposit itself.
+  try {
+    await generateReceiptPdf(customer, purchase, totalsUpTo(customer.purchases, customer.purchases.length - 1), config);
+  } catch (e) {
+    console.error("Receipt generation failed:", e.message);
+  }
 
   res.json({
     message: `Purchase recorded — total payable ₹${(amount + gst).toLocaleString("en-IN")} (incl. ${config.gstPercent}% GST). Our team will contact you to collect payment and confirm the credit.`,
+    receiptId: purchase.id,
     account: await accountView(customer),
   });
+});
+
+// ── Download a deposit receipt voucher ───────────────────────────────────────
+app.get("/api/receipts/:purchaseId", requireAuth, async (req, res) => {
+  const purchaseId = String(req.params.purchaseId || "");
+  if (!/^PUR-[A-F0-9]+$/.test(purchaseId)) return res.status(400).json({ error: "Invalid receipt ID" });
+
+  // The receipt must belong to this customer — active purchases or redeemed ones.
+  const customer = req.customer;
+  const all = [
+    ...customer.purchases,
+    ...(customer.redemptions || []).flatMap((r) => r.purchases || []),
+  ];
+  const index = all.findIndex((p) => p.id === purchaseId);
+  if (index === -1) return res.status(404).json({ error: "Receipt not found" });
+
+  const filePath = path.join(RECEIPTS_DIR, `${purchaseId}.pdf`);
+  if (!fs.existsSync(filePath)) {
+    try {
+      await generateReceiptPdf(customer, all[index], totalsUpTo(all, index), loadConfig());
+    } catch (e) {
+      console.error("Receipt regeneration failed:", e.message);
+      return res.status(500).json({ error: "Could not generate the receipt — please try again" });
+    }
+  }
+  res.download(filePath, `Aparanji_Receipt_${purchaseId}.pdf`);
 });
 
 // ── Scheme closure: withdraw cash or take gold coins after the lock-in ───────

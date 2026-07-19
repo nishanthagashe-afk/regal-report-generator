@@ -246,6 +246,18 @@
           if (i > 0) td.className = "num";
           tr.appendChild(td);
         });
+      const receiptTd = document.createElement("td");
+      receiptTd.className = "num";
+      const link = document.createElement("a");
+      link.href = "#";
+      link.className = "receipt-link";
+      link.textContent = "PDF";
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        downloadReceipt(p.id);
+      });
+      receiptTd.appendChild(link);
+      tr.appendChild(receiptTd);
       rows.appendChild(tr);
     });
     document.getElementById("noPurchases").hidden = list.length > 0;
@@ -279,6 +291,28 @@
   }
   buyAmountInput.addEventListener("input", updateBuyPreview);
 
+  // Receipts need the auth header, so fetch as a blob and trigger the download.
+  async function downloadReceipt(purchaseId) {
+    try {
+      const token = localStorage.getItem(TOKEN_KEY);
+      const res = await fetch(`/api/receipts/${purchaseId}`, {
+        headers: { Authorization: "Bearer " + token },
+      });
+      if (!res.ok) throw new Error("Could not download the receipt");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Aparanji_Receipt_${purchaseId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      window.alert(err.message);
+    }
+  }
+
   document.getElementById("buyBtn").addEventListener("click", async () => {
     setError("buyError", null);
     document.getElementById("buySuccess").hidden = true;
@@ -290,7 +324,18 @@
       });
       renderAccount(data.account);
       const success = document.getElementById("buySuccess");
-      success.textContent = data.message;
+      success.textContent = data.message + " ";
+      if (data.receiptId) {
+        const link = document.createElement("a");
+        link.href = "#";
+        link.className = "receipt-link";
+        link.textContent = "Download receipt (PDF)";
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+          downloadReceipt(data.receiptId);
+        });
+        success.appendChild(link);
+      }
       success.hidden = false;
       buyAmountInput.value = "";
       document.getElementById("buyPreview").textContent = "";

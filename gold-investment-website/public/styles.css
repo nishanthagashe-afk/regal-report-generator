@@ -479,6 +479,7 @@ input[type="file"] {
 .buy-preview { color: var(--gold-dark); font-weight: 600; font-size: 14px; min-height: 20px; margin: 10px 0; }
 
 .table-wrap { overflow-x: auto; }
+.receipt-link { color: var(--gold-dark); font-weight: 600; }
 .purchase-table {
   width: 100%;
   border-collapse: collapse;
