@@ -383,7 +383,7 @@ function generateReceiptPdf(customer, purchase, runningTotals, config) {
     doc.fillColor(ink).font("Times-Bold").fontSize(24).text("A", left + 14, 42);
     doc.fillColor("#faf6ec").font("Times-Bold").fontSize(22).text("Aparanji", left + 58, 36);
     doc.fillColor(gold).font("Helvetica").fontSize(9)
-      .text("DIGITAL GOLD INVESTMENT", left + 58, 64, { characterSpacing: 1 });
+      .text("YOUR GOLD COIN PARTNER", left + 58, 64, { characterSpacing: 1 });
     doc.fillColor("#faf6ec").font("Helvetica-Bold").fontSize(15)
       .text("RECEIPT VOUCHER", left, 48, { align: "right", width: right - left });
 
