@@ -48,20 +48,28 @@
 <section id="loginView" class="section" hidden>
   <div class="container">
     <h2 class="section-title">Log in to your account</h2>
-    <p class="section-sub">Use the account ID you received at registration, with your registered mobile number.</p>
+    <p class="section-sub">Enter your registered mobile number or email — we'll send you a one-time password (OTP) to verify it's you.</p>
 
     <form id="loginForm" class="enroll-form narrow">
-      <div class="form-grid">
-        <div class="calc-field">
-          <label for="loginAccountId">Account ID *</label>
-          <input type="text" id="loginAccountId" required placeholder="APJ-XXXXXXXX" maxlength="15" />
-        </div>
-        <div class="calc-field">
-          <label for="loginMobile">Registered mobile *</label>
-          <input type="tel" id="loginMobile" required maxlength="15" placeholder="9xxxxxxxxx" />
-        </div>
+      <div class="calc-field">
+        <label for="loginIdentifier">Registered mobile number or email *</label>
+        <input type="text" id="loginIdentifier" required maxlength="120" placeholder="9xxxxxxxxx or you@example.com" />
       </div>
-      <button type="submit" class="btn btn-primary">Log in</button>
+
+      <div id="otpStep" hidden>
+        <div class="calc-field" style="margin-top: 14px;">
+          <label for="loginOtp">Enter the 6-digit OTP *</label>
+          <input type="text" id="loginOtp" inputmode="numeric" maxlength="6" pattern="\d{6}" placeholder="______" autocomplete="one-time-code" />
+        </div>
+        <p class="otp-note" id="otpSentNote"></p>
+      </div>
+
+      <div class="otp-actions">
+        <button type="button" id="sendOtpBtn" class="btn btn-primary">Send OTP</button>
+        <button type="submit" id="verifyOtpBtn" class="btn btn-primary" hidden>Verify &amp; log in</button>
+        <button type="button" id="resendOtpBtn" class="btn btn-ghost-dark" hidden>Resend OTP</button>
+      </div>
+
       <p id="loginError" class="form-error" hidden></p>
       <p class="switch-link">New to Aparanji? <a href="#" id="showRegister">Create an account</a></p>
     </form>
@@ -216,6 +224,33 @@
         <div id="redeemSuccess" class="form-success" hidden></div>
       </div>
 
+      <div class="dash-panel">
+        <h3>Savings plan</h3>
+        <p class="dash-note">Automate your gold habit — save a fixed amount daily or monthly. Our team sets up the UPI Autopay mandate with you.</p>
+        <div class="calc-field-group">
+          <div class="calc-field">
+            <label for="planFreq">Frequency</label>
+            <select id="planFreq">
+              <option value="daily">Daily</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          <div class="calc-field">
+            <label for="planAmount">Amount (₹)</label>
+            <input type="number" id="planAmount" min="10" placeholder="e.g. 100" />
+          </div>
+        </div>
+        <p class="buy-preview" id="planStatus"></p>
+        <div class="otp-actions">
+          <button id="planStartBtn" class="btn btn-primary">Start plan</button>
+          <button id="planPauseBtn" class="btn btn-ghost-dark" hidden>Pause plan</button>
+        </div>
+        <p id="planError" class="form-error" hidden></p>
+        <div id="planSuccess" class="form-success" hidden></div>
+      </div>
+    </div>
+
+    <div class="dash-columns">
       <div class="dash-panel">
         <h3>Redemption history</h3>
         <div class="table-wrap" id="redemptionWrap">

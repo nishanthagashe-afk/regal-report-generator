@@ -378,6 +378,7 @@ async function accountView(customer) {
       netPayout: r.netPayout,
       status: r.status,
     })),
+    savingPlan: customer.savingPlan || null,
     todayRatePerGram: rate,
     rateSource,
     rateAsOf,
@@ -791,19 +792,144 @@ app.post("/api/register", (req, res) => {
 
     res.json({
       accountId,
-      message: `Account created! Your account ID is ${accountId}. Keep it safe — you'll use it with your mobile number to log in. Our team will verify your KYC within 24 hours.`,
+      message: `Account created! Your account ID is ${accountId}. Log in any time with an OTP sent to your registered mobile or email. Our team will verify your KYC within 24 hours.`,
     });
   });
 });
 
-// ── Login: account ID + registered mobile ────────────────────────────────────
-app.post("/api/login", (req, res) => {
-  const { accountId, mobile } = req.body || {};
-  const normMobile = normalizeMobile(mobile);
-  const customer = loadCustomers().find(
-    (c) => c.accountId === String(accountId || "").trim().toUpperCase() && c.mobile === normMobile
-  );
-  if (!customer) return res.status(401).json({ error: "Account ID and mobile number don't match" });
+// ── OTP login ────────────────────────────────────────────────────────────────
+// Every customer logs in with a one-time code sent to their registered mobile
+// or email. OTPs are 6 digits, HMAC-hashed in memory, valid 5 minutes, with
+// send and attempt rate limits.
+const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_MAX_SENDS = 3;
+const OTP_SEND_WINDOW_MS = 10 * 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+const otpStore = new Map(); // accountId -> { hash, expiresAt, attempts, sends: [ts], channel, destination }
+
+function findCustomerByIdentifier(identifier) {
+  const raw = String(identifier || "").trim();
+  const customers = loadCustomers();
+  if (raw.includes("@")) {
+    const email = raw.toLowerCase();
+    return customers.find((c) => c.email.toLowerCase() === email) || null;
+  }
+  const mobile = normalizeMobile(raw);
+  if (!mobile) return null;
+  return customers.find((c) => c.mobile === mobile) || null;
+}
+
+const hashOtp = (otp, accountId) =>
+  crypto.createHmac("sha256", SESSION_SECRET).update(`${accountId}:${otp}`).digest("hex");
+
+const maskMobile = (m) => "XXXXXX" + m.slice(-4);
+const maskEmail = (e) => {
+  const [user, domain] = e.split("@");
+  return user[0] + "***" + user.slice(-1) + "@" + domain;
+};
+
+// Delivery: uses SMTP for email / an SMS gateway webhook when configured via
+// environment variables; otherwise logs to the server console so the team can
+// relay codes manually. With OTP_DEBUG=1 the code is echoed to the client —
+// for local testing only, never set in production.
+async function deliverOtp(channel, destination, otp) {
+  const message = `${otp} is your Aparanji login OTP. Valid for 5 minutes. Do not share it with anyone.`;
+  if (channel === "email" && process.env.SMTP_HOST) {
+    const nodemailer = require("nodemailer");
+    const transport = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: process.env.SMTP_SECURE === "1",
+      auth: process.env.SMTP_USER
+        ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+        : undefined,
+    });
+    await transport.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: destination,
+      subject: "Your Aparanji login OTP",
+      text: message,
+    });
+    return;
+  }
+  if (channel === "mobile" && process.env.SMS_GATEWAY_URL) {
+    const res = await fetch(process.env.SMS_GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + (process.env.SMS_API_KEY || ""),
+      },
+      body: JSON.stringify({ to: "+91" + destination, message }),
+    });
+    if (!res.ok) throw new Error(`SMS gateway HTTP ${res.status}`);
+    return;
+  }
+  console.log(`[OTP] ${channel} → ${destination}: ${otp} (no ${channel} provider configured — relay manually)`);
+}
+
+app.post("/api/otp/request", async (req, res) => {
+  const identifier = String(req.body?.identifier || "").trim();
+  const customer = findCustomerByIdentifier(identifier);
+  if (!customer) {
+    return res.status(404).json({ error: "No account found for that mobile number or email" });
+  }
+
+  const now = Date.now();
+  const entry = otpStore.get(customer.accountId) || { sends: [] };
+  entry.sends = entry.sends.filter((t) => now - t < OTP_SEND_WINDOW_MS);
+  if (entry.sends.length >= OTP_MAX_SENDS) {
+    return res.status(429).json({ error: "Too many OTP requests — please try again in a few minutes" });
+  }
+
+  const channel = identifier.includes("@") ? "email" : "mobile";
+  const destination = channel === "email" ? customer.email : customer.mobile;
+  const otp = String(crypto.randomInt(100000, 1000000));
+
+  entry.hash = hashOtp(otp, customer.accountId);
+  entry.expiresAt = now + OTP_TTL_MS;
+  entry.attempts = 0;
+  entry.channel = channel;
+  entry.destination = destination;
+  entry.sends.push(now);
+  otpStore.set(customer.accountId, entry);
+
+  try {
+    await deliverOtp(channel, destination, otp);
+  } catch (e) {
+    console.error("OTP delivery failed:", e.message);
+    otpStore.delete(customer.accountId);
+    return res.status(500).json({ error: "Could not send the OTP — please try again" });
+  }
+
+  const masked = channel === "email" ? maskEmail(destination) : maskMobile(destination);
+  const payload = { message: `OTP sent to ${masked}`, channel, destination: masked };
+  if (process.env.OTP_DEBUG === "1") payload.demoOtp = otp;
+  res.json(payload);
+});
+
+app.post("/api/otp/verify", (req, res) => {
+  const identifier = String(req.body?.identifier || "").trim();
+  const otp = String(req.body?.otp || "").trim();
+  const customer = findCustomerByIdentifier(identifier);
+  if (!customer) return res.status(404).json({ error: "No account found for that mobile number or email" });
+
+  const entry = otpStore.get(customer.accountId);
+  if (!entry || !entry.hash) return res.status(400).json({ error: "Request an OTP first" });
+  if (Date.now() > entry.expiresAt) {
+    otpStore.delete(customer.accountId);
+    return res.status(400).json({ error: "This OTP has expired — request a new one" });
+  }
+  entry.attempts += 1;
+  if (entry.attempts > OTP_MAX_ATTEMPTS) {
+    otpStore.delete(customer.accountId);
+    return res.status(429).json({ error: "Too many wrong attempts — request a new OTP" });
+  }
+  if (!/^\d{6}$/.test(otp) ||
+      !crypto.timingSafeEqual(Buffer.from(hashOtp(otp, customer.accountId)), Buffer.from(entry.hash))) {
+    return res.status(401).json({ error: "Incorrect OTP — please check and try again" });
+  }
+
+  otpStore.delete(customer.accountId);
   res.json({ token: signToken(customer.accountId), name: customer.name, accountId: customer.accountId });
 });
 
@@ -881,6 +1007,36 @@ app.get("/api/receipts/:purchaseId", requireAuth, async (req, res) => {
     }
   }
   res.download(filePath, `Aparanji_Receipt_${purchaseId}.pdf`);
+});
+
+// ── Daily / monthly savings plan ─────────────────────────────────────────────
+app.post("/api/saving-plan", requireAuth, async (req, res) => {
+  const { frequency, amount, active } = req.body || {};
+  if (frequency !== "daily" && frequency !== "monthly") {
+    return res.status(400).json({ error: "Choose a daily or monthly plan" });
+  }
+  const min = frequency === "daily" ? 10 : 500;
+  const amt = Number(amount);
+  if (!Number.isFinite(amt) || amt < min) {
+    return res.status(400).json({ error: `Minimum ${frequency} saving is ₹${min}` });
+  }
+
+  const customers = loadCustomers();
+  const customer = customers.find((c) => c.accountId === req.customer.accountId);
+  customer.savingPlan = {
+    frequency,
+    amount: Math.round(amt),
+    active: Boolean(active),
+    updatedAt: new Date().toISOString(),
+  };
+  saveCustomers(customers);
+
+  res.json({
+    message: customer.savingPlan.active
+      ? `Savings plan active — ₹${customer.savingPlan.amount.toLocaleString("en-IN")} ${frequency}. Our team will contact you to set up the UPI Autopay mandate.`
+      : "Savings plan paused. Resume any time.",
+    account: await accountView(customer),
+  });
 });
 
 // ── Scheme closure: withdraw cash or take gold coins after the lock-in ───────

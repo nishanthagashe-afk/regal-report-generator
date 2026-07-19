@@ -31,10 +31,19 @@ at the live market rate, starting from ₹100.
 - **Account creation with KYC** — name, mobile, email, Aadhaar number, PAN, and
   uploaded copies of both documents (JPG/PNG/PDF, max 5 MB each). Duplicate
   mobile/PAN registrations are rejected; accounts start as "Under verification".
-- **Customer-wise accounts** — each customer logs in (account ID + registered
-  mobile) to a personal dashboard showing every purchase with the **invested
-  amount, GST paid, rate at which invested, and grams credited**, plus totals:
-  gold held, **current value at the live rate**, and gain/loss.
+- **Customer-wise accounts with OTP login** — customers log in with a 6-digit
+  OTP sent to their registered mobile or email (5-minute validity, rate-limited
+  sends and attempts). Delivery uses SMTP (`SMTP_HOST/PORT/USER/PASS/FROM`) for
+  email and a JSON webhook (`SMS_GATEWAY_URL` + `SMS_API_KEY`) for SMS; with no
+  provider configured, codes print to the server log for manual relay, and
+  `OTP_DEBUG=1` echoes them to the client (local testing only). The dashboard
+  shows every purchase with the **invested amount, GST paid, rate at which
+  invested, and grams credited**, plus totals: gold held, **current value at
+  the live rate**, and gain/loss.
+- **Savings plans & rate tools** — daily/monthly savings plan (stored per
+  customer; UPI Autopay mandate set up offline by the team), a purity-wise
+  gold rate calculator, a live 24K/22K/18K rates table, and a daily-vs-monthly
+  savings projection slider on the homepage.
 - **Buy gold** from the dashboard at the live rate (+3% GST), with a live
   preview of grams and total payable.
 - **Gold calculator** on the homepage — ₹ → grams or grams → ₹, including GST

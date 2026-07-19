@@ -141,24 +141,69 @@
       success.textContent = data.message;
       success.hidden = false;
       document.getElementById("registerForm").reset();
-      document.getElementById("loginAccountId").value = data.accountId;
       success.scrollIntoView({ behavior: "smooth", block: "center" });
     } catch (err) {
       setError("registerError", err.message);
     }
   });
 
-  // ── Login ──────────────────────────────────────────────────────────────────
+  // ── OTP login ──────────────────────────────────────────────────────────────
+  let resendTimer = null;
+
+  function startResendCountdown() {
+    const btn = document.getElementById("resendOtpBtn");
+    btn.hidden = false;
+    let left = 30;
+    btn.disabled = true;
+    btn.textContent = `Resend OTP (${left}s)`;
+    clearInterval(resendTimer);
+    resendTimer = setInterval(() => {
+      left -= 1;
+      if (left <= 0) {
+        clearInterval(resendTimer);
+        btn.disabled = false;
+        btn.textContent = "Resend OTP";
+      } else {
+        btn.textContent = `Resend OTP (${left}s)`;
+      }
+    }, 1000);
+  }
+
+  async function requestOtp() {
+    setError("loginError", null);
+    const identifier = document.getElementById("loginIdentifier").value.trim();
+    if (!identifier) return setError("loginError", "Enter your registered mobile number or email");
+    try {
+      const data = await api("/api/otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier }),
+      });
+      document.getElementById("otpStep").hidden = false;
+      document.getElementById("sendOtpBtn").hidden = true;
+      document.getElementById("verifyOtpBtn").hidden = false;
+      const note = document.getElementById("otpSentNote");
+      note.textContent = data.message + (data.demoOtp ? ` · Demo OTP: ${data.demoOtp}` : "");
+      startResendCountdown();
+      document.getElementById("loginOtp").focus();
+    } catch (err) {
+      setError("loginError", err.message);
+    }
+  }
+
+  document.getElementById("sendOtpBtn").addEventListener("click", requestOtp);
+  document.getElementById("resendOtpBtn").addEventListener("click", requestOtp);
+
   document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     setError("loginError", null);
     try {
-      const data = await api("/api/login", {
+      const data = await api("/api/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          accountId: document.getElementById("loginAccountId").value,
-          mobile: document.getElementById("loginMobile").value,
+          identifier: document.getElementById("loginIdentifier").value.trim(),
+          otp: document.getElementById("loginOtp").value.trim(),
         }),
       });
       localStorage.setItem(TOKEN_KEY, data.token);
@@ -230,6 +275,23 @@
         ? `Locked until ${from}. After that date you can withdraw the full value in cash or take gold coins.`
         : "Redemption opens 11 months after your first purchase.";
       redeemActions.hidden = true;
+    }
+
+    // Savings plan
+    const plan = acc.savingPlan;
+    const planStatus = document.getElementById("planStatus");
+    if (plan) {
+      document.getElementById("planFreq").value = plan.frequency;
+      document.getElementById("planAmount").value = plan.amount;
+      planStatus.textContent = plan.active
+        ? `Active: ${money(plan.amount)} ${plan.frequency}`
+        : `Paused: ${money(plan.amount)} ${plan.frequency}`;
+      document.getElementById("planStartBtn").textContent = plan.active ? "Update plan" : "Resume plan";
+      document.getElementById("planPauseBtn").hidden = !plan.active;
+    } else {
+      planStatus.textContent = "";
+      document.getElementById("planStartBtn").textContent = "Start plan";
+      document.getElementById("planPauseBtn").hidden = true;
     }
 
     // Redemption history
@@ -390,6 +452,31 @@
       setError("buyError", err.message);
     }
   });
+
+  // ── Savings plan ───────────────────────────────────────────────────────────
+  async function saveSavingPlan(active) {
+    setError("planError", null);
+    document.getElementById("planSuccess").hidden = true;
+    try {
+      const data = await api("/api/saving-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          frequency: document.getElementById("planFreq").value,
+          amount: Number(document.getElementById("planAmount").value),
+          active,
+        }),
+      });
+      renderAccount(data.account);
+      const success = document.getElementById("planSuccess");
+      success.textContent = data.message;
+      success.hidden = false;
+    } catch (err) {
+      setError("planError", err.message);
+    }
+  }
+  document.getElementById("planStartBtn").addEventListener("click", () => saveSavingPlan(true));
+  document.getElementById("planPauseBtn").addEventListener("click", () => saveSavingPlan(false));
 
   // ── Redeem / withdraw ──────────────────────────────────────────────────────
   async function redeem(mode) {
