@@ -24,6 +24,18 @@
 
   function show(view) {
     Object.entries(views).forEach(([name, el]) => (el.hidden = name !== view));
+    if (view === "login") resetLoginForm();
+  }
+
+  // Clear any half-finished OTP state so a fresh login always starts at step 1.
+  function resetLoginForm() {
+    document.getElementById("loginOtp").value = "";
+    document.getElementById("otpStep").hidden = true;
+    document.getElementById("sendOtpBtn").hidden = false;
+    document.getElementById("verifyOtpBtn").hidden = true;
+    document.getElementById("resendOtpBtn").hidden = true;
+    document.getElementById("loginError").hidden = true;
+    clearInterval(resendTimer);
   }
 
   function setError(id, msg) {
