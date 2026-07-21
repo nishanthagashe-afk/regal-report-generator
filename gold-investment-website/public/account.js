@@ -16,6 +16,14 @@
     nav.classList.toggle("open");
   });
 
+  // Create an element with an optional class and text.
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
   const views = {
     login: document.getElementById("loginView"),
     register: document.getElementById("registerView"),
@@ -39,12 +47,12 @@
   }
 
   function setError(id, msg) {
-    const el = document.getElementById(id);
+    const node = document.getElementById(id);
     if (msg) {
-      el.textContent = msg;
-      el.hidden = false;
+      node.textContent = msg;
+      node.hidden = false;
     } else {
-      el.hidden = true;
+      node.hidden = true;
     }
   }
 
@@ -278,11 +286,11 @@
     } else if (scheme.matured) {
       redeemStatus.textContent = "Your scheme has matured — choose how to redeem:";
       document.getElementById("redeemPreview").textContent =
-        `Withdraw ${money(scheme.cashWithdrawalValue)} in cash · or take ${acc.totals.grams} g in gold coins (making charge ≈ ${money(scheme.estimatedMakingCharge)})`;
+        `Withdraw ${money(scheme.cashWithdrawalValue)} to your bank account · or take ${acc.totals.grams} g in gold coins (making charge ≈ ${money(scheme.estimatedMakingCharge)})`;
       redeemActions.hidden = false;
     } else {
       redeemStatus.textContent = from
-        ? `Locked until ${from}. After that date you can withdraw the full value in cash or take gold coins.`
+        ? `Locked until ${from}. After that date you can withdraw the full value to your bank or take gold coins.`
         : "Redemption opens 11 months after your first purchase.";
       redeemActions.hidden = true;
     }
@@ -316,7 +324,8 @@
       const value = r.mode === "cash"
         ? money(r.netPayout)
         : `${money(r.grossValue)} − ${money(r.makingCharge)} MC`;
-      [date, r.mode === "cash" ? "Cash withdrawal" : "Gold coins", r.grams + " g", money(r.ratePerGram), value, r.status]
+      const payout = r.mode === "cash" ? (r.bank || "Bank transfer") : "Gold coins";
+      [date, r.mode === "cash" ? "Bank transfer" : "Gold coins", r.grams + " g", money(r.ratePerGram), value, payout, r.status]
         .forEach((v, i) => {
           const td = document.createElement("td");
           td.textContent = v;
@@ -489,43 +498,90 @@
   document.getElementById("planPauseBtn").addEventListener("click", () => saveSavingPlan(false));
 
   // ── Redeem / withdraw ──────────────────────────────────────────────────────
-  async function redeem(mode) {
+  const bankForm = document.getElementById("bankForm");
+
+  function renderAcknowledgement(ack) {
+    const box = document.getElementById("withdrawAck");
+    box.innerHTML = "";
+    box.appendChild(el("h4", null, "Withdrawal request received"));
+    const dl = document.createElement("dl");
+    const row = (label, value) => { dl.appendChild(el("dt", null, label)); dl.appendChild(el("dd", null, value)); };
+    row("Reference", ack.referenceId);
+    row("Amount", money(ack.amount));
+    row("Gold redeemed", ack.grams + " g");
+    row("Payout to", ack.bank);
+    row("Expected", ack.expectedBy);
+    box.appendChild(dl);
+    const link = el("a", "receipt-link", "Download acknowledgement / invoice (PDF)");
+    link.href = "#";
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      downloadDocument(`/api/invoices/${ack.referenceId}`, `Aparanji_Withdrawal_${ack.referenceId}.pdf`);
+    });
+    box.appendChild(link);
+    box.hidden = false;
+  }
+
+  async function submitRedeem(mode, bankDetails) {
     setError("redeemError", null);
     document.getElementById("redeemSuccess").hidden = true;
-
-    const label = mode === "cash"
-      ? "withdraw your full balance in cash"
-      : "redeem your full balance as gold coins (1% making charge applies)";
-    if (!window.confirm(`This will close your current scheme cycle and ${label}. Continue?`)) return;
-
+    document.getElementById("withdrawAck").hidden = true;
     try {
       const data = await api("/api/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
+        body: JSON.stringify(bankDetails ? { mode, bankDetails } : { mode }),
       });
       renderAccount(data.account);
-      const success = document.getElementById("redeemSuccess");
-      success.textContent = data.message + " ";
-      if (data.invoiceId) {
-        const link = document.createElement("a");
-        link.href = "#";
-        link.className = "receipt-link";
-        link.textContent = "Download invoice (PDF)";
-        link.addEventListener("click", (e) => {
-          e.preventDefault();
-          downloadDocument(`/api/invoices/${data.invoiceId}`, `Aparanji_Invoice_${data.invoiceId}.pdf`);
-        });
-        success.appendChild(link);
+      bankForm.hidden = true;
+      bankForm.reset();
+      if (data.acknowledgement) {
+        renderAcknowledgement(data.acknowledgement);
+      } else {
+        const success = document.getElementById("redeemSuccess");
+        success.textContent = data.message + " ";
+        if (data.invoiceId) {
+          const link = el("a", "receipt-link", "Download invoice (PDF)");
+          link.href = "#";
+          link.addEventListener("click", (e) => {
+            e.preventDefault();
+            downloadDocument(`/api/invoices/${data.invoiceId}`, `Aparanji_Invoice_${data.invoiceId}.pdf`);
+          });
+          success.appendChild(link);
+        }
+        success.hidden = false;
       }
-      success.hidden = false;
     } catch (err) {
       setError("redeemError", err.message);
     }
   }
 
-  document.getElementById("withdrawBtn").addEventListener("click", () => redeem("cash"));
-  document.getElementById("coinsBtn").addEventListener("click", () => redeem("coins"));
+  // "Withdraw to bank" reveals the bank-details form; "Take gold coins" confirms directly.
+  document.getElementById("withdrawBtn").addEventListener("click", () => {
+    setError("redeemError", null);
+    document.getElementById("redeemSuccess").hidden = true;
+    document.getElementById("withdrawAck").hidden = true;
+    bankForm.hidden = false;
+    document.getElementById("bankAccountHolder").focus();
+  });
+  document.getElementById("bankCancelBtn").addEventListener("click", () => {
+    bankForm.hidden = true;
+    bankForm.reset();
+  });
+  bankForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const bankDetails = {
+      accountHolder: document.getElementById("bankAccountHolder").value.trim(),
+      bankName: document.getElementById("bankName").value.trim(),
+      accountNumber: document.getElementById("bankAccountNumber").value.trim(),
+      ifsc: document.getElementById("bankIfsc").value.trim().toUpperCase(),
+    };
+    submitRedeem("cash", bankDetails);
+  });
+  document.getElementById("coinsBtn").addEventListener("click", () => {
+    if (!window.confirm("This will close your current scheme cycle and redeem your full balance as gold coins (1% making charge applies). Continue?")) return;
+    submitRedeem("coins");
+  });
 
   // ── Init ───────────────────────────────────────────────────────────────────
   loadConfig();

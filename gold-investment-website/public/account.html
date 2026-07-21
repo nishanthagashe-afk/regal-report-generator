@@ -217,12 +217,40 @@
         <div id="redeemActions" hidden>
           <p class="buy-preview" id="redeemPreview"></p>
           <div class="hero-cta">
-            <button id="withdrawBtn" class="btn btn-primary">Withdraw cash</button>
+            <button id="withdrawBtn" class="btn btn-primary">Withdraw to bank</button>
             <button id="coinsBtn" class="btn btn-ghost-dark">Take gold coins</button>
           </div>
+
+          <form id="bankForm" class="bank-form" hidden>
+            <h4>Bank transfer details</h4>
+            <p class="dash-note">Enter the account to receive your withdrawal. Double-check the account number and IFSC — transfers are made exactly as entered.</p>
+            <div class="form-grid">
+              <div class="calc-field">
+                <label for="bankAccountHolder">Account holder name *</label>
+                <input type="text" id="bankAccountHolder" maxlength="100" autocomplete="off" />
+              </div>
+              <div class="calc-field">
+                <label for="bankName">Bank name *</label>
+                <input type="text" id="bankName" maxlength="80" autocomplete="off" />
+              </div>
+              <div class="calc-field">
+                <label for="bankAccountNumber">Account number *</label>
+                <input type="text" id="bankAccountNumber" inputmode="numeric" maxlength="18" autocomplete="off" />
+              </div>
+              <div class="calc-field">
+                <label for="bankIfsc">IFSC code *</label>
+                <input type="text" id="bankIfsc" maxlength="11" placeholder="e.g. HDFC0001234" style="text-transform: uppercase;" autocomplete="off" />
+              </div>
+            </div>
+            <div class="otp-actions">
+              <button type="submit" class="btn btn-primary">Submit withdrawal request</button>
+              <button type="button" id="bankCancelBtn" class="btn btn-ghost-dark">Cancel</button>
+            </div>
+          </form>
         </div>
         <p id="redeemError" class="form-error" hidden></p>
         <div id="redeemSuccess" class="form-success" hidden></div>
+        <div id="withdrawAck" class="withdraw-ack" hidden></div>
       </div>
 
       <div class="dash-panel">
@@ -257,7 +285,7 @@
         <div class="table-wrap" id="redemptionWrap">
           <table class="purchase-table">
             <thead>
-              <tr><th>Date</th><th>Mode</th><th>Gold</th><th>Rate (₹/g)</th><th>Value</th><th>Status</th><th>Invoice</th></tr>
+              <tr><th>Date</th><th>Mode</th><th>Gold</th><th>Rate (₹/g)</th><th>Value</th><th>Payout to</th><th>Status</th><th>Invoice</th></tr>
             </thead>
             <tbody id="redemptionRows"></tbody>
           </table>

@@ -224,6 +224,31 @@ function isValidEmail(raw) {
 
 const maskAadhaar = (a) => "XXXX XXXX " + a.slice(-4);
 const maskPan = (p) => "XXXXXX" + p.slice(-4);
+const maskAccount = (a) => (a.length > 4 ? "XXXX" + a.slice(-4) : a);
+
+function normalizeIfsc(raw) {
+  const ifsc = String(raw || "").trim().toUpperCase();
+  return /^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc) ? ifsc : null;
+}
+
+function normalizeAccountNumber(raw) {
+  const acc = String(raw || "").replace(/\s/g, "");
+  return /^\d{9,18}$/.test(acc) ? acc : null;
+}
+
+// Validate the bank details a customer supplies for a bank-transfer withdrawal.
+// Returns { ok: true, bankDetails } or { ok: false, error }.
+function validateBankDetails(raw) {
+  const bankName = String(raw?.bankName || "").trim();
+  const accountHolder = String(raw?.accountHolder || "").trim();
+  const accountNumber = normalizeAccountNumber(raw?.accountNumber);
+  const ifsc = normalizeIfsc(raw?.ifsc);
+  if (!bankName) return { ok: false, error: "Enter your bank name" };
+  if (!accountHolder) return { ok: false, error: "Enter the account holder's name" };
+  if (!accountNumber) return { ok: false, error: "Enter a valid account number (9–18 digits)" };
+  if (!ifsc) return { ok: false, error: "Enter a valid IFSC code (e.g. HDFC0001234)" };
+  return { ok: true, bankDetails: { bankName, accountHolder, accountNumber, ifsc } };
+}
 
 // ── Auth tokens ──────────────────────────────────────────────────────────────
 function signToken(accountId) {
@@ -318,6 +343,9 @@ async function accountView(customer) {
       grossValue: r.grossValue,
       makingCharge: r.makingCharge,
       netPayout: r.netPayout,
+      bank: r.bankDetails
+        ? `${r.bankDetails.bankName} · A/c ${maskAccount(r.bankDetails.accountNumber)} · ${r.bankDetails.ifsc}`
+        : null,
       status: r.status,
     })),
     savingPlan: customer.savingPlan || null,
@@ -546,13 +574,15 @@ function generateInvoicePdf(customer, redemption, config) {
 
     // Settlement + GST notes
     y += 20;
+    const bd = redemption.bankDetails;
     doc.fillColor(ink).font("Helvetica").fontSize(10).text(
       isCoins
         ? `Settlement: ${redemption.grams.toFixed(4)} g of 24K gold coins to be handed over. The making charge of ${rs(redemption.makingCharge)} is payable at collection.`
-        : `Settlement: ${rs(redemption.grossValue)} to be transferred to your registered bank account within 2 working days.`,
+        : `Settlement: ${rs(redemption.grossValue)} to be transferred within 2 working days by bank transfer to` +
+          (bd ? ` ${bd.accountHolder}, ${bd.bankName}, A/c ${bd.accountNumber}, IFSC ${bd.ifsc}.` : " your registered bank account."),
       left, y, { width: right - left }
     );
-    y += 30;
+    y = doc.y + 12;
     doc.fillColor(muted).font("Helvetica").fontSize(9).text(
       `GST: inclusive. GST @ ${config.gstPercent}% totalling ${rs(gstPaid)} was already collected on each scheme deposit ` +
       `covered by this invoice; no further GST is charged on redemption.`,
@@ -988,6 +1018,14 @@ app.post("/api/redeem", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Choose how to redeem: cash or coins" });
   }
 
+  // Bank-transfer withdrawals require the customer's payout account details.
+  let bankDetails = null;
+  if (mode === "cash") {
+    const check = validateBankDetails(req.body?.bankDetails);
+    if (!check.ok) return res.status(400).json({ error: check.error });
+    bankDetails = check.bankDetails;
+  }
+
   const config = loadConfig();
   const customers = loadCustomers();
   const customer = customers.find((c) => c.accountId === req.customer.accountId);
@@ -1017,6 +1055,7 @@ app.post("/api/redeem", requireAuth, async (req, res) => {
     grossValue,
     makingCharge,
     netPayout,
+    bankDetails, // null for coin redemptions
     status: "processing",
     purchases: customer.purchases,
   };
@@ -1032,12 +1071,23 @@ app.post("/api/redeem", requireAuth, async (req, res) => {
     console.error("Invoice generation failed:", e.message);
   }
 
+  const acknowledgement =
+    mode === "cash"
+      ? {
+          referenceId: redemption.id,
+          amount: grossValue,
+          grams,
+          bank: `${bankDetails.bankName} · A/c ${maskAccount(bankDetails.accountNumber)} · ${bankDetails.ifsc}`,
+          expectedBy: "within 2 working days",
+        }
+      : null;
+
   const message =
     mode === "cash"
-      ? `Withdrawal recorded — ₹${grossValue.toLocaleString("en-IN")} for ${grams} g at ₹${rate.toLocaleString("en-IN")}/g. Our team will transfer the amount to your registered account within 2 working days.`
+      ? `Withdrawal request received. Reference ${redemption.id} — ₹${grossValue.toLocaleString("en-IN")} for ${grams} g will be transferred to ${bankDetails.bankName} A/c ${maskAccount(bankDetails.accountNumber)} within 2 working days. A confirmation invoice is available below.`
       : `Coin redemption recorded — ${grams} g of gold coins at today's ₹${rate.toLocaleString("en-IN")}/g. A making charge of ₹${makingCharge.toLocaleString("en-IN")} (${config.makingChargePercent}%) is payable on collection. Our team will contact you for handover.`;
 
-  res.json({ message, invoiceId: redemption.id, account: await accountView(customer) });
+  res.json({ message, invoiceId: redemption.id, acknowledgement, account: await accountView(customer) });
 });
 
 // ── Download a redemption invoice ────────────────────────────────────────────
