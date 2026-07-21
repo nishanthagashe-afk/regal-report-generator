@@ -124,6 +124,44 @@
     });
   }
 
+  function renderAbout(company, payment) {
+    if (!company) return;
+    document.getElementById("aboutTitle").textContent = "About " + company.legalName;
+    document.getElementById("aboutIntro").textContent = company.intro || "";
+    document.getElementById("aboutWhat").textContent = company.what || "";
+    document.getElementById("aboutCommit").textContent = company.commitment || "";
+
+    // Facts list — only rows that are filled in are shown.
+    const facts = document.getElementById("aboutFacts");
+    facts.innerHTML = "";
+    const rows = [
+      ["Legal name", company.legalName],
+      ["Brand", company.brand && company.tagline ? `${company.brand} — ${company.tagline}` : company.brand],
+      ["Based in", company.cityState],
+      ["Registered office", company.registeredOffice],
+      ["CIN", company.cin],
+      ["GSTIN", company.gstin],
+      ["Bankers", payment && payment.bankName ? `${payment.bankName}, ${payment.branch}` : ""],
+      ["Email", company.contactEmail],
+      ["Phone", company.contactPhone],
+      ["Grievance officer", company.grievanceOfficer],
+    ];
+    rows.forEach(([label, value]) => {
+      if (!value) return;
+      facts.appendChild(el("dt", null, label));
+      facts.appendChild(el("dd", null, value));
+    });
+
+    const values = document.getElementById("aboutValues");
+    values.innerHTML = "";
+    (company.values || []).forEach((v) => {
+      const card = el("div", "scheme-card");
+      card.appendChild(el("h3", null, v.title));
+      card.appendChild(el("p", "desc", v.description));
+      values.appendChild(card);
+    });
+  }
+
   async function loadPriceChart() {
     try {
       const res = await fetch("/api/rate-history");
@@ -238,6 +276,7 @@
     document.getElementById("freqMonthly").addEventListener("click", () => setSavingFreq("monthly"));
 
     renderWhyGold(config.whyGold);
+    renderAbout(config.company, config.payment);
     loadPriceChart();
     renderFeatures(config.features);
     renderSteps(config.steps);
