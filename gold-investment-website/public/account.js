@@ -324,26 +324,52 @@
       const value = r.mode === "cash"
         ? money(r.netPayout)
         : `${money(r.grossValue)} − ${money(r.makingCharge)} MC`;
-      const payout = r.mode === "cash" ? (r.bank || "Bank transfer") : "Gold coins";
-      [date, r.mode === "cash" ? "Bank transfer" : "Gold coins", r.grams + " g", money(r.ratePerGram), value, payout, r.status]
+      const isCash = r.mode === "cash";
+      const payout = isCash
+        ? (r.bank || "Bank transfer")
+        : (r.shipment ? `${r.shipment.city} - ${r.shipment.pincode}` : "Gold coins");
+
+      [date, isCash ? "Bank transfer" : "Gold coins", r.grams + " g", money(r.ratePerGram), value, payout]
         .forEach((v, i) => {
-          const td = document.createElement("td");
-          td.textContent = v;
-          if (i >= 2 && i <= 4) td.className = "num";
+          const td = el("td", i >= 2 && i <= 4 ? "num" : null, v);
           tr.appendChild(td);
         });
-      const invoiceTd = document.createElement("td");
-      invoiceTd.className = "num";
-      const invLink = document.createElement("a");
+
+      // Status cell — rich, with pill + tracking/reference detail
+      const statusTd = el("td");
+      if (isCash) {
+        const paid = r.status === "paid";
+        statusTd.appendChild(el("span", "pill " + (paid ? "pill-ok" : "pill-pending"), paid ? "Paid" : "Processing"));
+        if (paid && r.payment) statusTd.appendChild(el("div", "muted-note", "UTR " + r.payment.reference));
+      } else {
+        const sent = r.status === "dispatched";
+        statusTd.appendChild(el("span", "pill " + (sent ? "pill-ok" : "pill-pending"), sent ? "Dispatched" : "Processing"));
+        if (sent && r.shipment && r.shipment.trackingNumber) {
+          statusTd.appendChild(el("div", "muted-note", `${r.shipment.courier} · ${r.shipment.trackingNumber}`));
+        }
+      }
+      tr.appendChild(statusTd);
+
+      // Documents cell — invoice always; payment acknowledgement when cash is paid
+      const docsTd = el("td", "num");
+      const invLink = el("a", "receipt-link", "Invoice");
       invLink.href = "#";
-      invLink.className = "receipt-link";
-      invLink.textContent = "PDF";
       invLink.addEventListener("click", (e) => {
         e.preventDefault();
         downloadDocument(`/api/invoices/${r.id}`, `Aparanji_Invoice_${r.id}.pdf`);
       });
-      invoiceTd.appendChild(invLink);
-      tr.appendChild(invoiceTd);
+      docsTd.appendChild(invLink);
+      if (isCash && r.status === "paid") {
+        docsTd.appendChild(document.createTextNode(" · "));
+        const ackLink = el("a", "receipt-link", "Payment ack");
+        ackLink.href = "#";
+        ackLink.addEventListener("click", (e) => {
+          e.preventDefault();
+          downloadDocument(`/api/acks/${r.id}`, `Aparanji_Payment_Acknowledgement_${r.id}.pdf`);
+        });
+        docsTd.appendChild(ackLink);
+      }
+      tr.appendChild(docsTd);
       redRows.appendChild(tr);
     });
     document.getElementById("noRedemptions").hidden = redemptions.length > 0;
@@ -364,22 +390,27 @@
           if (i > 0) td.className = "num";
           tr.appendChild(td);
         });
-      const receiptTd = document.createElement("td");
-      receiptTd.className = "num";
-      const link = document.createElement("a");
-      link.href = "#";
-      link.className = "receipt-link";
-      link.textContent = "PDF";
-      link.addEventListener("click", (e) => {
-        e.preventDefault();
-        downloadReceipt(p.id);
-      });
-      receiptTd.appendChild(link);
+      // Status pill
+      const statusTd = el("td");
+      const confirmed = p.status === "confirmed";
+      const pill = el("span", "pill " + (confirmed ? "pill-ok" : "pill-pending"), confirmed ? "Confirmed" : "Payment pending");
+      statusTd.appendChild(pill);
+      tr.appendChild(statusTd);
+      // Receipt: only when payment is confirmed
+      const receiptTd = el("td", "num");
+      if (p.receiptAvailable) {
+        const link = el("a", "receipt-link", "PDF");
+        link.href = "#";
+        link.addEventListener("click", (e) => { e.preventDefault(); downloadReceipt(p.id); });
+        receiptTd.appendChild(link);
+      } else {
+        receiptTd.appendChild(el("span", "muted-note", "—"));
+      }
       tr.appendChild(receiptTd);
       rows.appendChild(tr);
     });
     document.getElementById("noPurchases").hidden = list.length > 0;
-    document.querySelector(".table-wrap").hidden = list.length === 0;
+    document.querySelector("#dashboardView .table-wrap").hidden = list.length === 0;
   }
 
   async function openDashboard() {
@@ -446,18 +477,7 @@
       });
       renderAccount(data.account);
       const success = document.getElementById("buySuccess");
-      success.textContent = data.message + " ";
-      if (data.receiptId) {
-        const link = document.createElement("a");
-        link.href = "#";
-        link.className = "receipt-link";
-        link.textContent = "Download receipt (PDF)";
-        link.addEventListener("click", (e) => {
-          e.preventDefault();
-          downloadReceipt(data.receiptId);
-        });
-        success.appendChild(link);
-      }
+      success.textContent = data.message;
       success.hidden = false;
       if (data.payment) {
         document.getElementById("payAmount").textContent = money(data.payment.amount);
@@ -503,52 +523,55 @@
   function renderAcknowledgement(ack) {
     const box = document.getElementById("withdrawAck");
     box.innerHTML = "";
-    box.appendChild(el("h4", null, "Withdrawal request received"));
     const dl = document.createElement("dl");
     const row = (label, value) => { dl.appendChild(el("dt", null, label)); dl.appendChild(el("dd", null, value)); };
-    row("Reference", ack.referenceId);
-    row("Amount", money(ack.amount));
-    row("Gold redeemed", ack.grams + " g");
-    row("Payout to", ack.bank);
-    row("Expected", ack.expectedBy);
+    if (ack.type === "coins") {
+      box.appendChild(el("h4", null, "Gold coin request received"));
+      row("Reference", ack.referenceId);
+      row("Gold redeemed", ack.grams + " g");
+      row("Making charge", money(ack.makingCharge));
+      row("Ship to", ack.shipTo);
+      row("Status", ack.expectedBy);
+    } else {
+      box.appendChild(el("h4", null, "Withdrawal request received"));
+      row("Reference", ack.referenceId);
+      row("Amount", money(ack.amount));
+      row("Gold redeemed", ack.grams + " g");
+      row("Payout to", ack.bank);
+      row("Expected", ack.expectedBy);
+    }
     box.appendChild(dl);
-    const link = el("a", "receipt-link", "Download acknowledgement / invoice (PDF)");
+    const link = el("a", "receipt-link", "Download invoice (PDF)");
     link.href = "#";
     link.addEventListener("click", (e) => {
       e.preventDefault();
-      downloadDocument(`/api/invoices/${ack.referenceId}`, `Aparanji_Withdrawal_${ack.referenceId}.pdf`);
+      downloadDocument(`/api/invoices/${ack.referenceId}`, `Aparanji_Invoice_${ack.referenceId}.pdf`);
     });
     box.appendChild(link);
     box.hidden = false;
   }
 
-  async function submitRedeem(mode, bankDetails) {
+  const coinForm = document.getElementById("coinForm");
+
+  async function submitRedeem(mode, extra) {
     setError("redeemError", null);
     document.getElementById("redeemSuccess").hidden = true;
     document.getElementById("withdrawAck").hidden = true;
     try {
+      const body = Object.assign({ mode }, extra || {});
       const data = await api("/api/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bankDetails ? { mode, bankDetails } : { mode }),
+        body: JSON.stringify(body),
       });
       renderAccount(data.account);
-      bankForm.hidden = true;
-      bankForm.reset();
+      bankForm.hidden = true; bankForm.reset();
+      coinForm.hidden = true; coinForm.reset();
       if (data.acknowledgement) {
         renderAcknowledgement(data.acknowledgement);
       } else {
         const success = document.getElementById("redeemSuccess");
-        success.textContent = data.message + " ";
-        if (data.invoiceId) {
-          const link = el("a", "receipt-link", "Download invoice (PDF)");
-          link.href = "#";
-          link.addEventListener("click", (e) => {
-            e.preventDefault();
-            downloadDocument(`/api/invoices/${data.invoiceId}`, `Aparanji_Invoice_${data.invoiceId}.pdf`);
-          });
-          success.appendChild(link);
-        }
+        success.textContent = data.message;
         success.hidden = false;
       }
     } catch (err) {
@@ -556,31 +579,52 @@
     }
   }
 
-  // "Withdraw to bank" reveals the bank-details form; "Take gold coins" confirms directly.
+  function hideRedeemForms() {
+    bankForm.hidden = true; coinForm.hidden = true;
+  }
+
+  // "Withdraw to bank" and "Take gold coins" each reveal their detail form.
   document.getElementById("withdrawBtn").addEventListener("click", () => {
     setError("redeemError", null);
     document.getElementById("redeemSuccess").hidden = true;
     document.getElementById("withdrawAck").hidden = true;
+    coinForm.hidden = true;
     bankForm.hidden = false;
     document.getElementById("bankAccountHolder").focus();
   });
-  document.getElementById("bankCancelBtn").addEventListener("click", () => {
+  document.getElementById("coinsBtn").addEventListener("click", () => {
+    setError("redeemError", null);
+    document.getElementById("redeemSuccess").hidden = true;
+    document.getElementById("withdrawAck").hidden = true;
     bankForm.hidden = true;
-    bankForm.reset();
+    coinForm.hidden = false;
+    document.getElementById("shipName").focus();
   });
+  document.getElementById("bankCancelBtn").addEventListener("click", () => { bankForm.hidden = true; bankForm.reset(); });
+  document.getElementById("coinCancelBtn").addEventListener("click", () => { coinForm.hidden = true; coinForm.reset(); });
+
   bankForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    const bankDetails = {
-      accountHolder: document.getElementById("bankAccountHolder").value.trim(),
-      bankName: document.getElementById("bankName").value.trim(),
-      accountNumber: document.getElementById("bankAccountNumber").value.trim(),
-      ifsc: document.getElementById("bankIfsc").value.trim().toUpperCase(),
-    };
-    submitRedeem("cash", bankDetails);
+    submitRedeem("cash", {
+      bankDetails: {
+        accountHolder: document.getElementById("bankAccountHolder").value.trim(),
+        bankName: document.getElementById("bankName").value.trim(),
+        accountNumber: document.getElementById("bankAccountNumber").value.trim(),
+        ifsc: document.getElementById("bankIfsc").value.trim().toUpperCase(),
+      },
+    });
   });
-  document.getElementById("coinsBtn").addEventListener("click", () => {
-    if (!window.confirm("This will close your current scheme cycle and redeem your full balance as gold coins (1% making charge applies). Continue?")) return;
-    submitRedeem("coins");
+  coinForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    submitRedeem("coins", {
+      shippingAddress: {
+        name: document.getElementById("shipName").value.trim(),
+        phone: document.getElementById("shipPhone").value.trim(),
+        addressLine: document.getElementById("shipAddress").value.trim(),
+        city: document.getElementById("shipCity").value.trim(),
+        pincode: document.getElementById("shipPincode").value.trim(),
+      },
+    });
   });
 
   // ── Init ───────────────────────────────────────────────────────────────────

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aparanji — Admin Console</title>
+<meta name="robots" content="noindex" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container header-row">
+    <div class="brand">
+      <span class="brand-mark">A</span>
+      <div class="brand-text">
+        <strong>Aparanji</strong>
+        <small>Admin Console</small>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="/">Public site</a>
+      <a href="#" id="adminLogout" hidden>Log out</a>
+    </nav>
+  </div>
+</header>
+
+<!-- Admin key gate -->
+<section id="adminLogin" class="section" hidden>
+  <div class="container">
+    <h2 class="section-title">Admin sign-in</h2>
+    <p class="section-sub">Enter the admin key to manage payments, withdrawals and shipments.</p>
+    <form id="adminKeyForm" class="enroll-form narrow">
+      <div class="calc-field">
+        <label for="adminKey">Admin key</label>
+        <input type="password" id="adminKey" autocomplete="off" />
+      </div>
+      <button type="submit" class="btn btn-primary">Sign in</button>
+      <p id="adminLoginError" class="form-error" hidden></p>
+    </form>
+  </div>
+</section>
+
+<!-- Console -->
+<section id="adminConsole" class="section" hidden>
+  <div class="container">
+    <div class="admin-tabs" id="adminTabs">
+      <button class="admin-tab active" data-tab="withdrawals">Withdrawal requests <span class="tab-count" id="countWithdrawals"></span></button>
+      <button class="admin-tab" data-tab="payments">Pending payments <span class="tab-count" id="countPayments"></span></button>
+      <button class="admin-tab" data-tab="shipments">Coin shipments <span class="tab-count" id="countShipments"></span></button>
+      <button class="admin-tab" data-tab="master">Customer master <span class="tab-count" id="countMaster"></span></button>
+    </div>
+    <div class="admin-toolbar">
+      <button id="refreshBtn" class="btn btn-ghost-dark">Refresh</button>
+      <span id="adminMsg" class="admin-msg"></span>
+    </div>
+
+    <div id="tab-withdrawals" class="admin-panel">
+      <h3>Customer withdrawal requests</h3>
+      <div class="table-wrap"><table class="purchase-table"><thead>
+        <tr><th>Date</th><th>Customer</th><th>Reference</th><th>Amount</th><th>Beneficiary account</th><th>Status</th><th>Action</th></tr>
+      </thead><tbody id="withdrawalRows"></tbody></table></div>
+      <p id="withdrawalsEmpty" class="dash-note" hidden>No withdrawal requests yet.</p>
+    </div>
+
+    <div id="tab-payments" class="admin-panel" hidden>
+      <h3>Purchases awaiting payment confirmation</h3>
+      <div class="table-wrap"><table class="purchase-table"><thead>
+        <tr><th>Date</th><th>Customer</th><th>Purchase</th><th>Amount</th><th>Gold</th><th>Action</th></tr>
+      </thead><tbody id="paymentRows"></tbody></table></div>
+      <p id="paymentsEmpty" class="dash-note" hidden>No purchases awaiting confirmation.</p>
+    </div>
+
+    <div id="tab-shipments" class="admin-panel" hidden>
+      <h3>Gold coin shipments</h3>
+      <div class="table-wrap"><table class="purchase-table"><thead>
+        <tr><th>Date</th><th>Customer</th><th>Reference</th><th>Gold</th><th>Ship to</th><th>Status</th><th>Action</th></tr>
+      </thead><tbody id="shipmentRows"></tbody></table></div>
+      <p id="shipmentsEmpty" class="dash-note" hidden>No coin shipments yet.</p>
+    </div>
+
+    <div id="tab-master" class="admin-panel" hidden>
+      <h3>Customer master</h3>
+      <div class="table-wrap"><table class="purchase-table"><thead>
+        <tr><th>Account</th><th>Name</th><th>Mobile</th><th>Email</th><th>PAN</th><th>KYC</th><th>Gold held</th><th>Pending</th></tr>
+      </thead><tbody id="masterRows"></tbody></table></div>
+      <p id="masterEmpty" class="dash-note" hidden>No customers yet.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Action modal -->
+<div id="adminModal" class="admin-modal" hidden>
+  <div class="admin-modal-card">
+    <h3 id="modalTitle"></h3>
+    <div id="modalBody"></div>
+    <div class="otp-actions">
+      <button id="modalSubmit" class="btn btn-primary">Submit</button>
+      <button id="modalCancel" class="btn btn-ghost-dark">Cancel</button>
+    </div>
+    <p id="modalError" class="form-error" hidden></p>
+  </div>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>

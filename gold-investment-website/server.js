@@ -24,10 +24,12 @@ const RATE_HISTORY_PATH = path.join(DATA_DIR, "rate-history.json");
 const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
 const RECEIPTS_DIR = path.join(DATA_DIR, "receipts");
 const INVOICES_DIR = path.join(DATA_DIR, "invoices");
+const ACKS_DIR = path.join(DATA_DIR, "acks");
 
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 fs.mkdirSync(RECEIPTS_DIR, { recursive: true });
 fs.mkdirSync(INVOICES_DIR, { recursive: true });
+fs.mkdirSync(ACKS_DIR, { recursive: true });
 
 // Tokens are signed with this secret; set SESSION_SECRET in production so
 // logins survive restarts.
@@ -250,6 +252,21 @@ function validateBankDetails(raw) {
   return { ok: true, bankDetails: { bankName, accountHolder, accountNumber, ifsc } };
 }
 
+// Validate the shipping address for a gold-coin redemption.
+function validateShippingAddress(raw) {
+  const name = String(raw?.name || "").trim();
+  const addressLine = String(raw?.addressLine || "").trim();
+  const city = String(raw?.city || "").trim();
+  const pincode = String(raw?.pincode || "").replace(/\s/g, "");
+  const phone = normalizeMobile(raw?.phone);
+  if (!name) return { ok: false, error: "Enter the recipient's name" };
+  if (addressLine.length < 8) return { ok: false, error: "Enter the full delivery address" };
+  if (!city) return { ok: false, error: "Enter the city / town" };
+  if (!/^\d{6}$/.test(pincode)) return { ok: false, error: "Enter a valid 6-digit PIN code" };
+  if (!phone) return { ok: false, error: "Enter a valid 10-digit contact number" };
+  return { ok: true, shipping: { name, addressLine, city, pincode, phone } };
+}
+
 // ── Auth tokens ──────────────────────────────────────────────────────────────
 function signToken(accountId) {
   const payload = Buffer.from(JSON.stringify({ accountId, exp: Date.now() + TOKEN_TTL_MS })).toString("base64url");
@@ -288,17 +305,25 @@ function addMonths(iso, months) {
   return d.toISOString();
 }
 
+// Confirmed purchases only — pending (unpaid) deposits do not count as holdings.
+const confirmedPurchases = (customer) => customer.purchases.filter((p) => p.status === "confirmed");
+
 async function accountView(customer) {
   const config = loadConfig();
   const { ratePerGram: rate, source: rateSource, asOf: rateAsOf } = await getRate();
-  const totalInvested = customer.purchases.reduce((s, p) => s + p.amount, 0);
-  const totalGst = customer.purchases.reduce((s, p) => s + (p.gst || 0), 0);
+  const confirmed = confirmedPurchases(customer);
+  const totalInvested = confirmed.reduce((s, p) => s + p.amount, 0);
+  const totalGst = confirmed.reduce((s, p) => s + (p.gst || 0), 0);
   const totalPaid = totalInvested + totalGst;
-  const totalGrams = Number(customer.purchases.reduce((s, p) => s + p.grams, 0).toFixed(4));
+  const totalGrams = Number(confirmed.reduce((s, p) => s + p.grams, 0).toFixed(4));
   const currentValue = Math.round(totalGrams * rate);
-  const firstPurchase = customer.purchases[0];
-  const redeemableFrom = firstPurchase ? addMonths(firstPurchase.date, config.lockInMonths) : null;
+  const firstConfirmed = confirmed[0];
+  const redeemableFrom = firstConfirmed ? addMonths(firstConfirmed.date, config.lockInMonths) : null;
   const matured = Boolean(redeemableFrom && Date.now() >= new Date(redeemableFrom).getTime());
+  const monthsRemaining = redeemableFrom
+    ? Math.max(0, Math.ceil((new Date(redeemableFrom).getTime() - Date.now()) / (30.44 * 24 * 3600 * 1000)))
+    : null;
+  const pendingCount = customer.purchases.filter((p) => p.status === "pending").length;
   return {
     accountId: customer.accountId,
     name: customer.name,
@@ -308,6 +333,7 @@ async function accountView(customer) {
     pan: maskPan(customer.pan),
     kycStatus: customer.kycVerified ? "Verified" : "Under verification",
     createdAt: customer.createdAt,
+    pendingCount,
     purchases: customer.purchases.map((p) => ({
       id: p.id,
       date: p.date,
@@ -316,6 +342,9 @@ async function accountView(customer) {
       totalPaid: p.totalPaid || p.amount,
       ratePerGram: p.ratePerGram,
       grams: p.grams,
+      status: p.status || "confirmed",
+      paymentRef: p.paymentRef || null,
+      receiptAvailable: (p.status || "confirmed") === "confirmed",
     })),
     totals: {
       invested: totalInvested,
@@ -329,6 +358,7 @@ async function accountView(customer) {
       lockInMonths: config.lockInMonths,
       redeemableFrom,
       matured,
+      monthsRemaining,
       redemption: "Gold coins (1% making charge) or cash withdrawal of equivalent value",
       makingChargePercent: config.makingChargePercent,
       estimatedMakingCharge: Math.round((currentValue * config.makingChargePercent) / 100),
@@ -345,6 +375,19 @@ async function accountView(customer) {
       netPayout: r.netPayout,
       bank: r.bankDetails
         ? `${r.bankDetails.bankName} · A/c ${maskAccount(r.bankDetails.accountNumber)} · ${r.bankDetails.ifsc}`
+        : null,
+      payment: r.payment
+        ? { reference: r.payment.reference, method: r.payment.method, paidOn: r.payment.paidOn }
+        : null,
+      shipment: r.shipment
+        ? {
+            addressLine: r.shipment.addressLine,
+            city: r.shipment.city,
+            pincode: r.shipment.pincode,
+            courier: r.shipment.courier || null,
+            trackingNumber: r.shipment.trackingNumber || null,
+            dispatchedOn: r.shipment.dispatchedOn || null,
+          }
         : null,
       status: r.status,
     })),
@@ -575,9 +618,11 @@ function generateInvoicePdf(customer, redemption, config) {
     // Settlement + GST notes
     y += 20;
     const bd = redemption.bankDetails;
+    const sh = redemption.shipment;
     doc.fillColor(ink).font("Helvetica").fontSize(10).text(
       isCoins
-        ? `Settlement: ${redemption.grams.toFixed(4)} g of 24K gold coins to be handed over. The making charge of ${rs(redemption.makingCharge)} is payable at collection.`
+        ? `Settlement: ${redemption.grams.toFixed(4)} g of 24K gold coins (making charge ${rs(redemption.makingCharge)}) to be shipped to` +
+          (sh ? ` ${sh.name}, ${sh.addressLine}, ${sh.city} - ${sh.pincode}, phone ${sh.phone}.` : " your registered address.")
         : `Settlement: ${rs(redemption.grossValue)} to be transferred within 2 working days by bank transfer to` +
           (bd ? ` ${bd.accountHolder}, ${bd.bankName}, A/c ${bd.accountNumber}, IFSC ${bd.ifsc}.` : " your registered bank account."),
       left, y, { width: right - left }
@@ -609,6 +654,92 @@ function totalsUpTo(purchases, index) {
     gst: slice.reduce((s, p) => s + (p.gst || 0), 0),
     grams: slice.reduce((s, p) => s + p.grams, 0),
   };
+}
+
+// ── Withdrawal payment acknowledgement ───────────────────────────────────────
+// Generated once an administrator records that the bank transfer was made.
+function generatePaymentAckPdf(customer, redemption) {
+  return new Promise((resolve, reject) => {
+    const filePath = path.join(ACKS_DIR, `${redemption.id}.pdf`);
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const stream = fs.createWriteStream(filePath);
+    doc.pipe(stream);
+
+    const ink = "#16130f", gold = "#c9a24b", goldDark = "#8a6d24", muted = "#6b6355", green = "#2f7d4f";
+    const pageWidth = doc.page.width, left = 50, right = pageWidth - 50;
+    const bd = redemption.bankDetails || {};
+    const pay = redemption.payment || {};
+
+    doc.rect(0, 0, pageWidth, 110).fill(ink);
+    doc.circle(left + 22, 55, 22).fill(gold);
+    doc.fillColor(ink).font("Times-Bold").fontSize(24).text("A", left + 14, 42);
+    doc.fillColor("#faf6ec").font("Times-Bold").fontSize(22).text("Aparanji", left + 58, 36);
+    doc.fillColor(gold).font("Helvetica").fontSize(9)
+      .text("YOUR GOLD COIN PARTNER", left + 58, 64, { characterSpacing: 1 });
+    doc.fillColor("#faf6ec").font("Helvetica-Bold").fontSize(15)
+      .text("PAYMENT ACKNOWLEDGEMENT", left, 48, { align: "right", width: right - left });
+
+    let y = 140;
+    doc.fillColor(muted).font("Helvetica").fontSize(10);
+    doc.text(`Reference: ${redemption.id}`, left, y);
+    doc.text(`Acknowledgement date: ${new Date(pay.paidOn || Date.now()).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`,
+      left, y, { align: "right", width: right - left });
+
+    y += 26;
+    doc.fillColor(green).font("Helvetica-Bold").fontSize(13)
+      .text(`Payment of ${rs(redemption.grossValue)} made successfully.`, left, y);
+
+    y += 26;
+    doc.fillColor(goldDark).font("Helvetica-Bold").fontSize(11).text("PAID TO", left, y);
+    y += 18;
+    doc.fillColor(ink).font("Helvetica-Bold").fontSize(12).text(customer.name, left, y);
+    y += 16;
+    doc.fillColor(muted).font("Helvetica").fontSize(10)
+      .text(`Account: ${customer.accountId}   ·   Mobile: ${customer.mobile}   ·   Email: ${customer.email}`, left, y);
+
+    y += 30;
+    const rows = [
+      ["Gold redeemed", redemption.grams.toFixed(4) + " g"],
+      ["Rate on redemption (24K 999)", rs(redemption.ratePerGram) + " / gram"],
+      ["Amount transferred", rs(redemption.grossValue)],
+      ["Beneficiary bank", `${bd.bankName || "-"} (A/c ${bd.accountNumber || "-"}, IFSC ${bd.ifsc || "-"})`],
+      ["Payment method", pay.method || "Bank transfer (NEFT/IMPS)"],
+      ["Bank reference / UTR", pay.reference || "-"],
+      ["Paid on", new Date(pay.paidOn || Date.now()).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })],
+    ];
+    const rowH = 26;
+    rows.forEach(([label, value], i) => {
+      const rowY = y + i * rowH;
+      if (i % 2 === 0) doc.rect(left, rowY, right - left, rowH).fill("#faf6ec");
+      const bold = label === "Amount transferred";
+      doc.fillColor(bold ? ink : muted).font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(10.5)
+        .text(label, left + 12, rowY + 7);
+      doc.fillColor(bold ? goldDark : ink).font("Helvetica-Bold").fontSize(10.5)
+        .text(value, left, rowY + 7, { align: "right", width: right - left - 12 });
+    });
+    y += rows.length * rowH;
+    doc.moveTo(left, y).lineTo(right, y).lineWidth(1.5).strokeColor(gold).stroke();
+
+    y += 18;
+    if (pay.note) {
+      doc.fillColor(ink).font("Helvetica").fontSize(10).text(`Note: ${pay.note}`, left, y, { width: right - left });
+      y = doc.y + 8;
+    }
+    doc.fillColor(muted).font("Helvetica").fontSize(9).text(
+      "This acknowledges that the above withdrawal has been settled to your bank account. " +
+      "If the amount is not reflected in your account within 2 working days of the paid-on date, please contact us with this reference.",
+      left, y, { width: right - left }
+    );
+
+    doc.fillColor(muted).font("Helvetica-Oblique").fontSize(8.5).text(
+      "This is a computer-generated acknowledgement and does not require a signature.",
+      left, doc.page.height - 70, { align: "center", width: right - left }
+    );
+
+    doc.end();
+    stream.on("finish", () => resolve(filePath));
+    stream.on("error", reject);
+  });
 }
 
 // ── Public endpoints ─────────────────────────────────────────────────────────
@@ -931,21 +1062,19 @@ app.post("/api/purchase", requireAuth, async (req, res) => {
     totalPaid: amount + gst,
     ratePerGram: rate,
     grams: Number((amount / rate).toFixed(4)),
+    status: "pending",          // "pending" until admin confirms payment, then "confirmed"
+    paymentRef: null,
+    paymentConfirmedAt: null,
   };
   customer.purchases.push(purchase);
   saveCustomers(customers);
 
-  // Generate the receipt voucher; a PDF hiccup must not fail the deposit itself.
-  try {
-    await generateReceiptPdf(customer, purchase, totalsUpTo(customer.purchases, customer.purchases.length - 1), config);
-  } catch (e) {
-    console.error("Receipt generation failed:", e.message);
-  }
-
+  // No receipt is generated here — the receipt PDF is created only once payment
+  // is received and confirmed (with remarks/reference) by an administrator.
   const totalPayable = amount + gst;
   res.json({
-    message: `Purchase recorded — total payable ₹${totalPayable.toLocaleString("en-IN")} (incl. ${config.gstPercent}% GST). Pay via UPI or bank transfer below; your grams are confirmed once payment is received.`,
-    receiptId: purchase.id,
+    message: `Purchase recorded — total payable ₹${totalPayable.toLocaleString("en-IN")} (incl. ${config.gstPercent}% GST). Pay via UPI or bank transfer using reference ${purchase.id}. Once we receive and confirm your payment, your gold is credited and your receipt becomes available to download.`,
+    purchaseId: purchase.id,
     payment: {
       amount: totalPayable,
       upiLink: buildUpiLink(totalPayable, `Aparanji ${purchase.id}`),
@@ -968,6 +1097,9 @@ app.get("/api/receipts/:purchaseId", requireAuth, async (req, res) => {
   ];
   const index = all.findIndex((p) => p.id === purchaseId);
   if (index === -1) return res.status(404).json({ error: "Receipt not found" });
+  if ((all[index].status || "confirmed") !== "confirmed") {
+    return res.status(409).json({ error: "Receipt is available only after your payment is confirmed" });
+  }
 
   const filePath = path.join(RECEIPTS_DIR, `${purchaseId}.pdf`);
   if (!fs.existsSync(filePath)) {
@@ -1018,33 +1150,47 @@ app.post("/api/redeem", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Choose how to redeem: cash or coins" });
   }
 
-  // Bank-transfer withdrawals require the customer's payout account details.
+  // Bank-transfer withdrawals require the customer's payout account details;
+  // gold-coin redemptions require a shipping address.
   let bankDetails = null;
+  let shipping = null;
   if (mode === "cash") {
     const check = validateBankDetails(req.body?.bankDetails);
     if (!check.ok) return res.status(400).json({ error: check.error });
     bankDetails = check.bankDetails;
+  } else {
+    const check = validateShippingAddress(req.body?.shippingAddress);
+    if (!check.ok) return res.status(400).json({ error: check.error });
+    shipping = check.shipping;
   }
 
   const config = loadConfig();
   const customers = loadCustomers();
   const customer = customers.find((c) => c.accountId === req.customer.accountId);
+  const confirmed = confirmedPurchases(customer);
 
-  if (!customer.purchases.length) {
-    return res.status(400).json({ error: "You have no active holdings to redeem" });
+  if (!confirmed.length) {
+    return res.status(400).json({ error: "You have no confirmed holdings to redeem" });
   }
 
-  const redeemableFrom = new Date(addMonths(customer.purchases[0].date, config.lockInMonths));
+  // Lock-in: the scheme term must be complete before any withdrawal.
+  const redeemableFrom = new Date(addMonths(confirmed[0].date, config.lockInMonths));
   if (Date.now() < redeemableFrom.getTime()) {
     const from = redeemableFrom.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-    return res.status(400).json({ error: `Your scheme matures on ${from} — redemption opens then` });
+    const monthsLeft = Math.max(1, Math.ceil((redeemableFrom.getTime() - Date.now()) / (30.44 * 24 * 3600 * 1000)));
+    return res.status(403).json({
+      error: `Withdrawal is not allowed yet. This is a ${config.lockInMonths}-month scheme — please pay the remaining ${monthsLeft} month${monthsLeft === 1 ? "" : "s"} of installments and withdraw on or after ${from}.`,
+      monthsRemaining: monthsLeft,
+      redeemableFrom: redeemableFrom.toISOString(),
+    });
   }
 
   const { ratePerGram: rate } = await getRate();
-  const grams = Number(customer.purchases.reduce((s, p) => s + p.grams, 0).toFixed(4));
+  const grams = Number(confirmed.reduce((s, p) => s + p.grams, 0).toFixed(4));
   const grossValue = Math.round(grams * rate);
   const makingCharge = mode === "coins" ? Math.round((grossValue * config.makingChargePercent) / 100) : 0;
   const netPayout = mode === "cash" ? grossValue : 0;
+  const confirmedIds = new Set(confirmed.map((p) => p.id));
 
   const redemption = {
     id: "RED-" + crypto.randomBytes(4).toString("hex").toUpperCase(),
@@ -1056,12 +1202,17 @@ app.post("/api/redeem", requireAuth, async (req, res) => {
     makingCharge,
     netPayout,
     bankDetails, // null for coin redemptions
+    payment: null, // filled by admin when the withdrawal is paid
+    shipment: shipping
+      ? { ...shipping, courier: null, trackingNumber: null, dispatchedOn: null }
+      : null,
     status: "processing",
-    purchases: customer.purchases,
+    purchases: confirmed,
   };
   customer.redemptions = customer.redemptions || [];
   customer.redemptions.push(redemption);
-  customer.purchases = [];
+  // Only the confirmed holdings are redeemed; any pending (unpaid) deposits stay.
+  customer.purchases = customer.purchases.filter((p) => !confirmedIds.has(p.id));
   saveCustomers(customers);
 
   // Generate the invoice; a PDF hiccup must not fail the redemption itself.
@@ -1074,18 +1225,26 @@ app.post("/api/redeem", requireAuth, async (req, res) => {
   const acknowledgement =
     mode === "cash"
       ? {
+          type: "withdrawal",
           referenceId: redemption.id,
           amount: grossValue,
           grams,
           bank: `${bankDetails.bankName} · A/c ${maskAccount(bankDetails.accountNumber)} · ${bankDetails.ifsc}`,
           expectedBy: "within 2 working days",
         }
-      : null;
+      : {
+          type: "coins",
+          referenceId: redemption.id,
+          grams,
+          makingCharge,
+          shipTo: `${shipping.name}, ${shipping.city} - ${shipping.pincode}`,
+          expectedBy: "dispatched within 5–7 working days",
+        };
 
   const message =
     mode === "cash"
-      ? `Withdrawal request received. Reference ${redemption.id} — ₹${grossValue.toLocaleString("en-IN")} for ${grams} g will be transferred to ${bankDetails.bankName} A/c ${maskAccount(bankDetails.accountNumber)} within 2 working days. A confirmation invoice is available below.`
-      : `Coin redemption recorded — ${grams} g of gold coins at today's ₹${rate.toLocaleString("en-IN")}/g. A making charge of ₹${makingCharge.toLocaleString("en-IN")} (${config.makingChargePercent}%) is payable on collection. Our team will contact you for handover.`;
+      ? `Withdrawal request received. Reference ${redemption.id} — ₹${grossValue.toLocaleString("en-IN")} for ${grams} g will be transferred to ${bankDetails.bankName} A/c ${maskAccount(bankDetails.accountNumber)} within 2 working days. You will receive a payment acknowledgement once the transfer is made.`
+      : `Gold coin request received. Reference ${redemption.id} — ${grams} g of 24K coins (making charge ₹${makingCharge.toLocaleString("en-IN")} at ${config.makingChargePercent}%) will be shipped to ${shipping.city} - ${shipping.pincode}. Track the shipment status on this page.`;
 
   res.json({ message, invoiceId: redemption.id, acknowledgement, account: await accountView(customer) });
 });
@@ -1110,11 +1269,180 @@ app.get("/api/invoices/:redemptionId", requireAuth, async (req, res) => {
   res.download(filePath, `Aparanji_Invoice_${redemptionId}.pdf`);
 });
 
-// ── Admin: full customer list (requires ADMIN_KEY env var) ───────────────────
-app.get("/api/customers", (req, res) => {
+// ── Download a withdrawal payment acknowledgement (customer) ─────────────────
+app.get("/api/acks/:redemptionId", requireAuth, (req, res) => {
+  const id = String(req.params.redemptionId || "");
+  if (!/^RED-[A-F0-9]+$/.test(id)) return res.status(400).json({ error: "Invalid reference" });
+  const redemption = (req.customer.redemptions || []).find((r) => r.id === id);
+  if (!redemption) return res.status(404).json({ error: "Not found" });
+  if (redemption.status !== "paid") {
+    return res.status(409).json({ error: "The payment acknowledgement is available once your withdrawal is paid" });
+  }
+  const filePath = path.join(ACKS_DIR, `${id}.pdf`);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Acknowledgement not found" });
+  res.download(filePath, `Aparanji_Payment_Acknowledgement_${id}.pdf`);
+});
+
+// ── Admin ────────────────────────────────────────────────────────────────────
+function requireAdmin(req, res, next) {
   if (!process.env.ADMIN_KEY || req.get("x-admin-key") !== process.env.ADMIN_KEY) {
     return res.status(403).json({ error: "Not authorized" });
   }
+  next();
+}
+
+// Admin console data: pending payments, withdrawal requests, coin shipments,
+// and the customer master — assembled from all customers.
+app.get("/api/admin/data", requireAdmin, (req, res) => {
+  const customers = loadCustomers();
+  const pendingPayments = [];
+  const withdrawals = [];
+  const shipments = [];
+  const master = [];
+
+  for (const c of customers) {
+    const grams = confirmedPurchases(c).reduce((s, p) => s + p.grams, 0);
+    master.push({
+      accountId: c.accountId, name: c.name, mobile: c.mobile, email: c.email,
+      pan: maskPan(c.pan), aadhaar: maskAadhaar(c.aadhaar),
+      kyc: c.kycVerified ? "Verified" : "Under verification",
+      createdAt: c.createdAt,
+      confirmedGrams: Number(grams.toFixed(4)),
+      pending: c.purchases.filter((p) => (p.status || "confirmed") === "pending").length,
+    });
+    for (const p of c.purchases) {
+      if ((p.status || "confirmed") === "pending") {
+        pendingPayments.push({
+          accountId: c.accountId, name: c.name, mobile: c.mobile,
+          purchaseId: p.id, date: p.date, amount: p.amount, gst: p.gst, totalPaid: p.totalPaid,
+          ratePerGram: p.ratePerGram, grams: p.grams,
+        });
+      }
+    }
+    for (const r of c.redemptions || []) {
+      if (r.mode === "cash") {
+        withdrawals.push({
+          accountId: c.accountId, name: c.name, mobile: c.mobile, email: c.email,
+          redemptionId: r.id, date: r.date, grams: r.grams, amount: r.grossValue,
+          status: r.status, // processing | paid
+          bank: r.bankDetails
+            ? { accountHolder: r.bankDetails.accountHolder, bankName: r.bankDetails.bankName, accountNumber: r.bankDetails.accountNumber, ifsc: r.bankDetails.ifsc }
+            : null,
+          payment: r.payment || null,
+        });
+      } else {
+        shipments.push({
+          accountId: c.accountId, name: c.name, mobile: c.mobile,
+          redemptionId: r.id, date: r.date, grams: r.grams, makingCharge: r.makingCharge,
+          status: r.status, // processing | dispatched
+          shipTo: r.shipment || null,
+        });
+      }
+    }
+  }
+
+  const byDateDesc = (a, b) => new Date(b.date) - new Date(a.date);
+  res.json({
+    pendingPayments: pendingPayments.sort(byDateDesc),
+    withdrawals: withdrawals.sort(byDateDesc),
+    shipments: shipments.sort(byDateDesc),
+    master: master.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+  });
+});
+
+// Confirm a customer's payment for a pending purchase → credit gold, make receipt.
+app.post("/api/admin/confirm-payment", requireAdmin, async (req, res) => {
+  const { accountId, purchaseId, reference } = req.body || {};
+  if (!reference || !String(reference).trim()) {
+    return res.status(400).json({ error: "Enter the payment reference / remarks" });
+  }
+  const customers = loadCustomers();
+  const customer = customers.find((c) => c.accountId === accountId);
+  if (!customer) return res.status(404).json({ error: "Customer not found" });
+  const purchase = customer.purchases.find((p) => p.id === purchaseId);
+  if (!purchase) return res.status(404).json({ error: "Purchase not found" });
+  if ((purchase.status || "confirmed") === "confirmed") {
+    return res.status(409).json({ error: "This purchase is already confirmed" });
+  }
+  purchase.status = "confirmed";
+  purchase.paymentRef = String(reference).trim();
+  purchase.paymentConfirmedAt = new Date().toISOString();
+  saveCustomers(customers);
+
+  // Now that payment is confirmed, generate the receipt.
+  try {
+    const index = customer.purchases.findIndex((p) => p.id === purchaseId);
+    await generateReceiptPdf(customer, purchase, totalsUpTo(customer.purchases, index), loadConfig());
+  } catch (e) {
+    console.error("Receipt generation failed:", e.message);
+  }
+  res.json({ message: `Payment confirmed for ${purchaseId}. Gold credited and receipt generated.` });
+});
+
+// Record that a withdrawal was paid → store payment details, make acknowledgement.
+app.post("/api/admin/pay-withdrawal", requireAdmin, async (req, res) => {
+  const { accountId, redemptionId, reference, method, paidOn, note } = req.body || {};
+  if (!reference || !String(reference).trim()) {
+    return res.status(400).json({ error: "Enter the bank reference / UTR number" });
+  }
+  const customers = loadCustomers();
+  const customer = customers.find((c) => c.accountId === accountId);
+  if (!customer) return res.status(404).json({ error: "Customer not found" });
+  const redemption = (customer.redemptions || []).find((r) => r.id === redemptionId && r.mode === "cash");
+  if (!redemption) return res.status(404).json({ error: "Withdrawal request not found" });
+  if (redemption.status === "paid") return res.status(409).json({ error: "This withdrawal is already marked paid" });
+
+  redemption.status = "paid";
+  redemption.payment = {
+    reference: String(reference).trim(),
+    method: (method && String(method).trim()) || "Bank transfer (NEFT/IMPS)",
+    paidOn: paidOn ? new Date(paidOn).toISOString() : new Date().toISOString(),
+    note: note ? String(note).trim() : null,
+    recordedAt: new Date().toISOString(),
+  };
+  saveCustomers(customers);
+
+  try {
+    await generatePaymentAckPdf(customer, redemption);
+  } catch (e) {
+    console.error("Acknowledgement generation failed:", e.message);
+  }
+  res.json({ message: `Withdrawal ${redemptionId} marked paid and acknowledgement generated.` });
+});
+
+// Record dispatch of gold coins → courier + tracking.
+app.post("/api/admin/dispatch-coins", requireAdmin, (req, res) => {
+  const { accountId, redemptionId, courier, trackingNumber } = req.body || {};
+  if (!courier || !String(courier).trim()) return res.status(400).json({ error: "Enter the courier / logistics partner" });
+  if (!trackingNumber || !String(trackingNumber).trim()) return res.status(400).json({ error: "Enter the tracking number" });
+  const customers = loadCustomers();
+  const customer = customers.find((c) => c.accountId === accountId);
+  if (!customer) return res.status(404).json({ error: "Customer not found" });
+  const redemption = (customer.redemptions || []).find((r) => r.id === redemptionId && r.mode === "coins");
+  if (!redemption) return res.status(404).json({ error: "Coin redemption not found" });
+  if (!redemption.shipment) return res.status(400).json({ error: "No shipping address on this request" });
+
+  redemption.status = "dispatched";
+  redemption.shipment.courier = String(courier).trim();
+  redemption.shipment.trackingNumber = String(trackingNumber).trim();
+  redemption.shipment.dispatchedOn = new Date().toISOString();
+  saveCustomers(customers);
+  res.json({ message: `Coins for ${redemptionId} marked dispatched (${courier}, ${trackingNumber}).` });
+});
+
+// Admin PDF downloads (receipt / invoice / acknowledgement) by id.
+app.get("/api/admin/pdf/:kind/:id", requireAdmin, (req, res) => {
+  const { kind, id } = req.params;
+  const map = { receipt: [RECEIPTS_DIR, "PUR"], invoice: [INVOICES_DIR, "RED"], ack: [ACKS_DIR, "RED"] };
+  const entry = map[kind];
+  if (!entry || !new RegExp(`^${entry[1]}-[A-F0-9]+$`).test(id)) return res.status(400).json({ error: "Bad request" });
+  const filePath = path.join(entry[0], `${id}.pdf`);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: "Document not found" });
+  res.download(filePath, `Aparanji_${kind}_${id}.pdf`);
+});
+
+// Full customer list (raw) — kept for export/backup.
+app.get("/api/customers", requireAdmin, (req, res) => {
   res.json(loadCustomers());
 });
 

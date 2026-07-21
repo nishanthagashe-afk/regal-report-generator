@@ -201,7 +201,7 @@
         <div class="table-wrap">
           <table class="purchase-table">
             <thead>
-              <tr><th>Date</th><th>Gold value</th><th>GST</th><th>Total paid</th><th>Rate (₹/g)</th><th>Gold</th><th>Receipt</th></tr>
+              <tr><th>Date</th><th>Gold value</th><th>GST</th><th>Total paid</th><th>Rate (₹/g)</th><th>Gold</th><th>Status</th><th>Receipt</th></tr>
             </thead>
             <tbody id="purchaseRows"></tbody>
           </table>
@@ -247,6 +247,37 @@
               <button type="button" id="bankCancelBtn" class="btn btn-ghost-dark">Cancel</button>
             </div>
           </form>
+
+          <form id="coinForm" class="bank-form" hidden>
+            <h4>Shipping address for gold coins</h4>
+            <p class="dash-note">Your 24K gold coins will be shipped to this address. A 1% making charge applies at redemption.</p>
+            <div class="form-grid">
+              <div class="calc-field">
+                <label for="shipName">Recipient name *</label>
+                <input type="text" id="shipName" maxlength="100" autocomplete="off" />
+              </div>
+              <div class="calc-field">
+                <label for="shipPhone">Contact number *</label>
+                <input type="tel" id="shipPhone" maxlength="15" placeholder="9xxxxxxxxx" autocomplete="off" />
+              </div>
+              <div class="calc-field span-2">
+                <label for="shipAddress">Full address (house, street, area) *</label>
+                <input type="text" id="shipAddress" maxlength="200" autocomplete="off" />
+              </div>
+              <div class="calc-field">
+                <label for="shipCity">City / town *</label>
+                <input type="text" id="shipCity" maxlength="60" autocomplete="off" />
+              </div>
+              <div class="calc-field">
+                <label for="shipPincode">PIN code *</label>
+                <input type="text" id="shipPincode" inputmode="numeric" maxlength="6" autocomplete="off" />
+              </div>
+            </div>
+            <div class="otp-actions">
+              <button type="submit" class="btn btn-primary">Submit coin request</button>
+              <button type="button" id="coinCancelBtn" class="btn btn-ghost-dark">Cancel</button>
+            </div>
+          </form>
         </div>
         <p id="redeemError" class="form-error" hidden></p>
         <div id="redeemSuccess" class="form-success" hidden></div>
@@ -285,7 +316,7 @@
         <div class="table-wrap" id="redemptionWrap">
           <table class="purchase-table">
             <thead>
-              <tr><th>Date</th><th>Mode</th><th>Gold</th><th>Rate (₹/g)</th><th>Value</th><th>Payout to</th><th>Status</th><th>Invoice</th></tr>
+              <tr><th>Date</th><th>Mode</th><th>Gold</th><th>Rate (₹/g)</th><th>Value</th><th>Payout / ship to</th><th>Status</th><th>Documents</th></tr>
             </thead>
             <tbody id="redemptionRows"></tbody>
           </table>

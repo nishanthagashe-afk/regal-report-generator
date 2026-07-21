@@ -83,6 +83,26 @@ Environment variables:
 - `ADMIN_KEY` — enables `GET /api/customers` (full customer list) via the
   `x-admin-key` header; endpoint returns 403 when unset
 
+## Admin console
+
+Visit `/admin.html` and sign in with the `ADMIN_KEY` you set. From there staff can:
+
+- **Withdrawal requests** — see every customer bank-transfer request; "Mark paid"
+  records the UTR/reference and paid date and generates a payment acknowledgement
+  PDF the customer can download.
+- **Pending payments** — purchases sit as "Payment pending" until confirmed here
+  with the payment reference/remarks; confirming credits the gold and generates
+  the receipt (receipts are **not** generated at purchase time).
+- **Coin shipments** — gold-coin redemptions carry the customer's shipping
+  address; "Add tracking" records courier + tracking number and marks dispatched,
+  which the customer then sees on their dashboard.
+- **Customer master** — the full customer list with KYC status and holdings.
+
+The admin key is entered in the browser and sent as the `x-admin-key` header; set
+a long random `ADMIN_KEY` in production. Withdrawals are also blocked before the
+11-month scheme term completes, with a message to complete the remaining
+installments.
+
 ## Deploy
 
 Push to GitHub, then on [Render](https://render.com) create a **Web Service**:
