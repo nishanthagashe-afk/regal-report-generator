@@ -42,30 +42,15 @@ function loadConfig() {
   return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
 }
 
-// ── Live Indian 24K gold rate ────────────────────────────────────────────────
-// Primary source: the Jewellers' Association Bangalore published rate at
-// jab.org.in — a retail market rate that already includes duty and local
-// premium, used as-is. If JAB can't be fetched or parsed, fall back to a
-// derived rate: live INR gold price (goldprice.org, then spot XAU/USD ×
-// USD/INR) adjusted by the configured import duty and local premium. If every
-// feed is unreachable, the configured rate in config.json is served.
-// Clients poll /api/rate every second and get the cached value.
-const GRAMS_PER_TROY_OUNCE = 31.1034768;
+// ── Live 24K gold rate — Jewellers' Association Bangalore (jab.org.in) ────────
+// The gold rate is sourced ONLY from JAB — never MCX or international spot.
+// Primary: scrape the published 24K (999) per-gram rate from jab.org.in.
+// Fallback: the JAB rate entered by staff in config.json (goldRatePerGram24K /
+// updatedOn) — still a real JAB figure, just keyed in manually rather than
+// scraped. Clients poll /api/rate every second and get the cached value.
 const RATE_REFRESH_MS = 30 * 1000;
 
-let rateCache = { ratePerGram: null, source: "fallback", asOf: null, fetchedAt: 0 };
-
-async function fetchJson(url, timeoutMs = 5000) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { signal: ctrl.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
-    return await res.json();
-  } finally {
-    clearTimeout(timer);
-  }
-}
+let rateCache = { ratePerGram: null, source: null, asOf: null, fetchedAt: 0 };
 
 async function fetchText(url, timeoutMs = 6000) {
   const ctrl = new AbortController();
@@ -85,29 +70,33 @@ async function fetchText(url, timeoutMs = 6000) {
   }
 }
 
-// Parse the 24K (999) per-gram rate from the JAB (Jewellers' Association
-// Bangalore) homepage. Tolerant of markup changes: strips tags and looks for a
-// figure near a 999/24K label; values that look like per-10g are scaled down.
+// Extract the 24K (999) per-gram rate from the JAB (Jewellers' Association
+// Bangalore) homepage. Tolerant of markup changes: scans both the visible text
+// and the raw HTML (in case rates are embedded in an inline script/JSON), looks
+// for a figure near a 999/24K label, and scales per-10g values down to per-gram.
 function parseJabRate(html) {
-  const text = html
+  const patterns = [
+    /(?:999|24\s*(?:k|kt|ct|carat|karat))[^0-9]{0,60}?(?:rs\.?|inr|₹)?\s*([\d,]{4,8})(?:\.\d+)?/i,
+    /(?:fine\s*gold|gold\s*999)[^0-9]{0,60}?([\d,]{4,8})(?:\.\d+)?/i,
+  ];
+  const visible = html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&#\d+;?/g, " ")
     .replace(/&[a-z]+;/gi, " ")
     .replace(/\s+/g, " ");
+  const raw = html.replace(/\s+/g, " ");
 
-  const patterns = [
-    /(?:999|24\s*(?:k|kt|ct|carat|karat))[^0-9]{0,60}?(?:rs\.?|inr|₹)?\s*([\d,]{4,8})(?:\.\d+)?/i,
-    /(?:fine\s*gold|gold\s*999)[^0-9]{0,60}?([\d,]{4,8})(?:\.\d+)?/i,
-  ];
-  for (const re of patterns) {
-    const m = text.match(re);
-    if (!m) continue;
-    let value = Number(m[1].replace(/,/g, ""));
-    if (!Number.isFinite(value)) continue;
-    if (value >= 40000 && value <= 400000) value = value / 10; // per 10 g
-    if (value >= 4000 && value <= 40000) return Math.round(value); // per gram
+  for (const source of [visible, raw]) {
+    for (const re of patterns) {
+      const m = source.match(re);
+      if (!m) continue;
+      let value = Number(m[1].replace(/,/g, ""));
+      if (!Number.isFinite(value)) continue;
+      if (value >= 40000 && value <= 400000) value = value / 10; // per 10 g
+      if (value >= 4000 && value <= 40000) return Math.round(value); // per gram
+    }
   }
   throw new Error("Could not find a 24K rate on the JAB page");
 }
@@ -116,64 +105,16 @@ async function fetchJabRatePerGram() {
   return parseJabRate(await fetchText("https://jab.org.in/"));
 }
 
-// INR per troy ounce, straight from an INR-denominated feed.
-async function fetchInrPerOunceDirect() {
-  const data = await fetchJson("https://data-asg.goldprice.org/dbXRates/INR");
-  const inrPerOunce = Number(data.items?.[0]?.xauPrice);
-  if (!Number.isFinite(inrPerOunce)) throw new Error("Malformed INR gold data");
-  return inrPerOunce;
-}
-
-// Fallback chain: international spot × USD/INR.
-async function fetchInrPerOunceViaUsd() {
-  const [gold, fx] = await Promise.all([
-    fetchJson("https://api.gold-api.com/price/XAU"),
-    fetchJson("https://open.er-api.com/v6/latest/USD"),
-  ]);
-  const usdPerOunce = Number(gold.price);
-  const inrPerUsd = Number(fx.rates?.INR);
-  if (!Number.isFinite(usdPerOunce) || !Number.isFinite(inrPerUsd)) {
-    throw new Error("Malformed market data");
-  }
-  return usdPerOunce * inrPerUsd;
-}
-
 async function refreshLiveRate() {
-  // 1. JAB published rate — already the retail Indian market rate, no
-  //    duty/premium adjustment needed.
-  try {
-    rateCache = {
-      ratePerGram: await fetchJabRatePerGram(),
-      source: "jab",
-      asOf: new Date().toISOString(),
-      fetchedAt: Date.now(),
-    };
-    recordRatePoint(rateCache.ratePerGram);
-    return;
-  } catch {
-    /* fall through to the derived rate */
-  }
-
-  // 2. Derived rate: INR spot + customs import duty + local market premium.
-  //    Tune both in config.json so this tracks the JAB published rate.
-  let inrPerOunce;
-  try {
-    inrPerOunce = await fetchInrPerOunceDirect();
-  } catch {
-    inrPerOunce = await fetchInrPerOunceViaUsd();
-  }
-
-  const config = loadConfig();
-  const duty = 1 + (config.importDutyPercent || 0) / 100;
-  const premium = 1 + (config.localPremiumPercent || 0) / 100;
-
+  // JAB published rate, scraped live — the only rate basis for the site.
+  const ratePerGram = await fetchJabRatePerGram(); // throws if unavailable
   rateCache = {
-    ratePerGram: Math.round((inrPerOunce / GRAMS_PER_TROY_OUNCE) * duty * premium),
-    source: "live",
+    ratePerGram,
+    source: "jab",
     asOf: new Date().toISOString(),
     fetchedAt: Date.now(),
   };
-  recordRatePoint(rateCache.ratePerGram);
+  recordRatePoint(ratePerGram);
 }
 
 // Append at most one history point per day from the live feed, so the price
@@ -200,16 +141,17 @@ async function getRate() {
     try {
       await refreshLiveRate();
     } catch (e) {
-      // Keep serving the last known rate; use the configured rate if we never
-      // had a live one. Bump fetchedAt so a dead feed isn't hammered.
-      if (!rateCache.ratePerGram) {
+      // JAB scrape unavailable: fall back to the JAB rate staff keyed into
+      // config.json. Keep a previously scraped live value if we have one.
+      if (rateCache.source !== "jab" || !rateCache.ratePerGram) {
         const config = loadConfig();
         rateCache = {
           ratePerGram: config.goldRatePerGram24K,
-          source: "fallback",
+          source: "jab-manual",
           asOf: config.updatedOn,
           fetchedAt: Date.now(),
         };
+        recordRatePoint(rateCache.ratePerGram);
       } else {
         rateCache.fetchedAt = Date.now();
       }
@@ -490,7 +432,7 @@ function generateReceiptPdf(customer, purchase, runningTotals, config) {
     doc.fillColor(muted).font("Helvetica").fontSize(9).text(
       `Scheme terms: ${config.lockInMonths}-month lock-in from your first purchase. On maturity, redeem as gold coins ` +
       `(${config.makingChargePercent}% making charge at closure) or withdraw the equivalent value in money. ` +
-      `Gold rate is the Indian market rate published at the time of purchase.`,
+      `Gold rate is the Jewellers' Association Bangalore (jab.org.in) 24K rate published at the time of purchase.`,
       left, y, { width: right - left }
     );
 

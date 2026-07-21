@@ -70,10 +70,8 @@
       document.getElementById("rate24k").textContent = `24K: ${money(todayRate)}/g`;
       document.getElementById("rateDate").textContent =
         data.source === "jab"
-          ? `JAB Bengaluru · ${new Date(data.asOf).toLocaleTimeString("en-IN")}`
-          : data.source === "live"
-            ? `LIVE · ${new Date(data.asOf).toLocaleTimeString("en-IN")}`
-            : `Indicative · as of ${data.asOf}`;
+          ? `JAB Bengaluru · live · ${new Date(data.asOf).toLocaleTimeString("en-IN")}`
+          : `JAB Bengaluru · as of ${data.asOf}`;
       refreshLiveValues();
       updateBuyPreview();
     } catch (e) {

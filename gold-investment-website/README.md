@@ -2,7 +2,7 @@
 
 An independent website for Aparanji, accepting investment exclusively toward
 **digital gold purchase**: customers buy 24K 999-purity gold in fractional grams
-at the live market rate, starting from ₹100.
+at the live Jewellers' Association Bangalore (jab.org.in) rate, starting from ₹100.
 
 ## Scheme rules
 
@@ -15,14 +15,13 @@ at the live market rate, starting from ₹100.
 
 ## Features
 
-- **Live Indian 24K rate, JAB-first** — the server first fetches the published
-  rate from the Jewellers' Association Bangalore (jab.org.in) and uses it as-is
-  (it already includes duty and local premium). If JAB can't be fetched or
-  parsed, it falls back to a derived rate — live INR gold price (goldprice.org,
-  then spot XAU/USD × USD/INR) adjusted by the configured **import duty** and
-  **local premium** — and finally to the configured rate in `data/config.json`,
-  clearly labelled. Cached 30 s; clients poll `/api/rate` every second. The
-  ticker shows the source: "JAB Bengaluru", "LIVE", or "Indicative".
+- **Live 24K rate — Jewellers' Association Bangalore (jab.org.in) only** — the
+  gold rate is sourced solely from JAB, never MCX or international spot. The
+  server scrapes the published 24K (999) per-gram rate from jab.org.in; if that
+  is unavailable it falls back to the JAB rate staff key into `data/config.json`
+  (`goldRatePerGram24K` / `updatedOn`) — still a real JAB figure. Cached 30 s;
+  clients poll `/api/rate` every second. The ticker shows "JAB Bengaluru · live"
+  when scraped, or "JAB Bengaluru · as of <date>" on the manual fallback.
 - **PDF receipt vouchers** — every deposit generates a branded A4 receipt
   (receipt no., customer + masked KYC, gold value, GST, total received, rate
   applied, grams credited, running balance). Downloadable from the buy
@@ -73,12 +72,9 @@ node server.js
 ## Configuration
 
 Edit `data/config.json`:
-- `goldRatePerGram24K` / `updatedOn` — fallback rate when the live feed is down
-- `importDutyPercent` — customs duty used by the derived fallback rate (15%
-  since 13 May 2026: 10% BCD + 5% AIDC; update here whenever the duty changes)
-- `localPremiumPercent` — local market premium for the derived fallback rate;
-  tune it so the fallback tracks the JAB published rate (not used when the JAB
-  rate itself is available)
+- `goldRatePerGram24K` / `updatedOn` — the JAB (jab.org.in) 24K rate, used only
+  when the live scrape is unavailable. Staff should update these from the JAB
+  site so the manual fallback is always a real JAB figure.
 - `gstPercent`, `lockInMonths`, `makingChargePercent` — scheme terms
 - `minPurchaseAmount` — minimum per purchase
 

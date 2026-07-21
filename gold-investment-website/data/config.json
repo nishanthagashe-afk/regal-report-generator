@@ -1,8 +1,7 @@
 {
+  "_rateNote": "goldRatePerGram24K is the JAB (jab.org.in) published 24K rate, used only when the live scrape is unavailable. Staff should update it and updatedOn from the JAB site.",
   "goldRatePerGram24K": 14329,
-  "updatedOn": "2026-07-19",
-  "importDutyPercent": 15,
-  "localPremiumPercent": 4.5,
+  "updatedOn": "2026-07-21",
   "minPurchaseAmount": 100,
   "gstPercent": 3,
   "lockInMonths": 11,
