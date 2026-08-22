@@ -1,0 +1,61 @@
+{
+  "note": "Indian 24K 999 rate per gram, duty-inclusive. Historical monthly seed points; going forward the server appends a daily point from the Jewellers' Association Bangalore (jab.org.in) live feed.",
+  "points": [
+    {
+      "date": "2025-07-15",
+      "ratePerGram": 9760
+    },
+    {
+      "date": "2025-08-15",
+      "ratePerGram": 9900
+    },
+    {
+      "date": "2025-09-15",
+      "ratePerGram": 10150
+    },
+    {
+      "date": "2025-10-15",
+      "ratePerGram": 10420
+    },
+    {
+      "date": "2025-11-15",
+      "ratePerGram": 10280
+    },
+    {
+      "date": "2025-12-15",
+      "ratePerGram": 10560
+    },
+    {
+      "date": "2026-01-15",
+      "ratePerGram": 10900
+    },
+    {
+      "date": "2026-02-15",
+      "ratePerGram": 11250
+    },
+    {
+      "date": "2026-03-15",
+      "ratePerGram": 11480
+    },
+    {
+      "date": "2026-04-15",
+      "ratePerGram": 11820
+    },
+    {
+      "date": "2026-05-15",
+      "ratePerGram": 13350
+    },
+    {
+      "date": "2026-06-15",
+      "ratePerGram": 13900
+    },
+    {
+      "date": "2026-07-15",
+      "ratePerGram": 14300
+    },
+    {
+      "date": "2026-07-21",
+      "ratePerGram": 14329
+    }
+  ]
+}

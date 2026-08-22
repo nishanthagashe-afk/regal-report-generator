@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aparanji — Your Gold Coin Partner</title>
+<meta name="description" content="Aparanji — invest in 24K digital gold from ₹100. Buy at the live rate, track your grams, redeem as coins or bars." />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container header-row">
+    <div class="brand">
+      <span class="brand-mark">A</span>
+      <div class="brand-text">
+        <strong>Aparanji</strong>
+        <small>Your Gold Coin Partner</small>
+      </div>
+    </div>
+    <nav class="nav" id="nav">
+      <a href="#why-gold">Why invest in gold?</a>
+      <a href="#why">Why Aparanji</a>
+      <a href="#how">How it works</a>
+      <a href="#calculator">Calculator</a>
+      <a href="#daily">Savings plans</a>
+      <a href="#about">About us</a>
+      <a href="#faq">FAQ</a>
+      <a href="account.html">My Account</a>
+    </nav>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">☰</button>
+  </div>
+</header>
+
+<section class="hero coin-rain">
+  <div class="container hero-inner">
+    <p class="eyebrow">24K 999 purity digital gold</p>
+    <h1>Own gold, <span>one rupee at a time.</span></h1>
+    <p class="hero-sub">
+      Aparanji accepts investment exclusively toward digital gold purchase.
+      Buy 24K gold in fractional grams at the live rate — starting from just ₹100.
+    </p>
+    <div class="hero-cta">
+      <a href="#invest" class="btn btn-primary">Start Investing</a>
+      <a href="#calculator" class="btn btn-ghost">Try the Calculator</a>
+    </div>
+  </div>
+</section>
+
+<div class="rate-ticker">
+  <div class="container rate-row">
+    <span>Today's Gold Rate</span>
+    <span id="rate24k">24K: ₹— /g</span>
+    <span id="rateDate" class="rate-date"></span>
+  </div>
+</div>
+
+<section class="trust-strip">
+  <div class="container trust-row">
+    <div class="trust-item"><strong>24K 999</strong><span>Assured purity</span></div>
+    <div class="trust-item"><strong>100%</strong><span>Vault-secured holdings</span></div>
+    <div class="trust-item"><strong>₹100</strong><span>Minimum investment</span></div>
+    <div class="trust-item"><strong>JAB rates</strong><span>Jewellers' Assn. Bangalore</span></div>
+  </div>
+</section>
+
+<section id="why-gold" class="section">
+  <div class="container">
+    <h2 class="section-title">Why invest in gold?</h2>
+    <p class="section-sub">Gold has been India's favourite store of value for generations — here's the case in numbers and in principle.</p>
+
+    <div class="chart-panel">
+      <h3 class="chart-title">24K gold price — Jewellers' Association Bangalore (jab.org.in)</h3>
+      <p class="chart-sub">₹ per gram, duty-inclusive · last 12 months · the May 2026 step reflects the import-duty hike from 6% to 15%</p>
+      <div id="priceChart" class="price-chart" aria-label="Line chart of the Indian 24K gold rate per gram over the last 12 months"></div>
+      <details class="chart-data">
+        <summary>View data</summary>
+        <div class="table-wrap">
+          <table class="purchase-table" id="priceTable">
+            <thead><tr><th>Month</th><th>Rate (₹/g)</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+
+    <div class="calc-box rate-calc">
+      <h3 class="chart-title">Gold rate calculator</h3>
+      <p class="chart-sub">What is gold worth right now? Pick a purity, enter grams — priced live.</p>
+      <div class="calc-field-group">
+        <div class="calc-field">
+          <label for="rcPurity">Purity</label>
+          <select id="rcPurity">
+            <option value="1" selected>24K (999)</option>
+            <option value="0.916">22K (916)</option>
+            <option value="0.75">18K (750)</option>
+          </select>
+        </div>
+        <div class="calc-field">
+          <label for="rcGrams">Weight (grams)</label>
+          <input type="number" id="rcGrams" min="0" step="0.1" value="10" />
+        </div>
+      </div>
+      <dl id="rcResult" class="rc-result"></dl>
+    </div>
+
+    <div class="chart-panel rates-panel">
+      <h3 class="chart-title">Today's gold rates in India</h3>
+      <p class="chart-sub">Live, duty-inclusive market rates by purity — the same rate every Aparanji purchase uses.</p>
+      <div class="table-wrap">
+        <table class="purchase-table" id="ratesTable">
+          <thead>
+            <tr><th>Purity</th><th>1 gram</th><th>8 grams</th><th>10 grams</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="whyGoldCards" class="scheme-grid" style="margin-top: 28px;"></div>
+  </div>
+</section>
+
+<section id="why" class="section section-alt">
+  <div class="container">
+    <h2 class="section-title">Why invest with Aparanji</h2>
+    <p class="section-sub">A single, simple product: digital gold. No schemes, no installment lock-ins — just gold, at the rate you can see.</p>
+    <div id="featureCards" class="scheme-grid">
+      <p class="loading">Loading…</p>
+    </div>
+  </div>
+</section>
+
+<section id="how" class="section">
+  <div class="container">
+    <h2 class="section-title">How it works</h2>
+    <p class="section-sub">Three steps from sign-up to holding gold.</p>
+    <div id="stepCards" class="steps-grid"></div>
+  </div>
+</section>
+
+<section id="calculator" class="section section-alt">
+  <div class="container">
+    <h2 class="section-title">Gold calculator</h2>
+    <p class="section-sub">See exactly how many grams your money buys at today's rate — or what a gram target costs.</p>
+
+    <div class="calc-box">
+      <div class="calc-field-group">
+        <div class="calc-field">
+          <label for="calcAmount">Amount to invest (₹)</label>
+          <input type="number" id="calcAmount" min="0" placeholder="e.g. 5000" />
+        </div>
+        <div class="calc-field">
+          <label for="calcGrams">Or target gold (grams)</label>
+          <input type="number" id="calcGrams" min="0" step="0.1" placeholder="e.g. 2.5" />
+        </div>
+      </div>
+      <button id="calcSubmit" class="btn btn-primary calc-btn">Calculate</button>
+    </div>
+
+    <div id="calcResult" class="calc-result" hidden></div>
+    <p id="calcError" class="form-error" hidden></p>
+  </div>
+</section>
+
+<section id="daily" class="section">
+  <div class="container">
+    <h2 class="section-title">Save daily or monthly. Build gold on autopilot.</h2>
+    <p class="section-sub">Small regular amounts quietly add up to real gold. Pick a rhythm, slide, and see what your habit is worth.</p>
+
+    <div class="calc-box daily-box">
+      <div class="freq-toggle" role="tablist">
+        <button type="button" id="freqDaily" class="freq-btn active">Daily</button>
+        <button type="button" id="freqMonthly" class="freq-btn">Monthly</button>
+      </div>
+      <div class="daily-slider-row">
+        <label for="dailyAmount" id="dailyAmountCaption">Daily saving</label>
+        <strong id="dailyAmountLabel">₹100 / day</strong>
+      </div>
+      <input type="range" id="dailyAmount" min="10" max="1000" step="10" value="100" />
+      <div class="daily-stats">
+        <div><span class="daily-stat-label">Per month</span><strong id="dailyMonthly">—</strong></div>
+        <div><span class="daily-stat-label">Per year</span><strong id="dailyYearly">—</strong></div>
+        <div><span class="daily-stat-label">≈ Gold per year</span><strong id="dailyGrams">—</strong></div>
+      </div>
+      <p class="dash-note">Projection at today's live rate, before GST. Start a plan from your account dashboard — our team helps you set up a UPI Autopay mandate.</p>
+      <a href="account.html" class="btn btn-primary">Start a savings plan</a>
+    </div>
+  </div>
+</section>
+
+<section id="invest" class="section section-alt">
+  <div class="container">
+    <h2 class="section-title">Start investing</h2>
+    <p class="section-sub">Create your KYC-verified account, then buy and track your gold from your personal dashboard.</p>
+
+    <div class="cta-card">
+      <h3>Open your Aparanji account</h3>
+      <p>Keep these ready — KYC is mandatory for digital gold investment:</p>
+      <ul class="cta-list">
+        <li>Aadhaar number + a copy (JPG, PNG or PDF)</li>
+        <li>PAN + a copy (JPG, PNG or PDF)</li>
+        <li>Email address and mobile number</li>
+      </ul>
+      <div class="hero-cta">
+        <a href="account.html#register" class="btn btn-primary">Create account</a>
+        <a href="account.html" class="btn btn-ghost-dark">Log in to your dashboard</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="about" class="section">
+  <div class="container">
+    <h2 class="section-title" id="aboutTitle">About us</h2>
+    <p class="section-sub" id="aboutIntro"></p>
+
+    <div class="about-grid">
+      <div class="about-copy">
+        <h3 id="aboutWhatHeading">What we do</h3>
+        <p id="aboutWhat"></p>
+        <h3 id="aboutCommitHeading">Our commitment</h3>
+        <p id="aboutCommit"></p>
+      </div>
+      <aside class="about-facts">
+        <h3>Company details</h3>
+        <dl id="aboutFacts"></dl>
+      </aside>
+    </div>
+
+    <div id="aboutValues" class="scheme-grid" style="margin-top: 28px;"></div>
+  </div>
+</section>
+
+<section id="faq" class="section section-alt">
+  <div class="container">
+    <h2 class="section-title">Frequently asked questions</h2>
+    <div class="faq-list">
+      <details>
+        <summary>What exactly am I buying?</summary>
+        <p>24K 999-purity digital gold. Every rupee you invest is converted to grams at the day's published rate and credited to your account balance.</p>
+      </details>
+      <details>
+        <summary>What documents do I need to enroll?</summary>
+        <p>KYC is mandatory: your Aadhaar number and PAN with a copy of each document (JPG, PNG or PDF), plus your email address and mobile number. Our team verifies your KYC within 24 hours of registration.</p>
+      </details>
+      <details>
+        <summary>Are there any taxes or charges?</summary>
+        <p>Yes — 3% GST applies on the purchase value of every gold purchase. At scheme closure, if you redeem as gold coins, a 1% making charge on the coins applies.</p>
+      </details>
+      <details>
+        <summary>Is there a minimum investment?</summary>
+        <p>Yes — ₹100 per purchase (plus 3% GST). There is no upper limit and no fixed schedule; top up whenever you like.</p>
+      </details>
+      <details>
+        <summary>When and how can I redeem?</summary>
+        <p>This is an 11-month scheme. After 11 months from your first purchase, you can close the scheme and redeem your accumulated gold as gold coins (1% making charge applies). If you don't wish to take coins, you can withdraw the equivalent value in money instead.</p>
+      </details>
+      <details>
+        <summary>How do I track my holdings?</summary>
+        <p>Log in to your account dashboard to see every purchase — the amount invested, the rate at which you bought, grams credited — and your gold's current value at today's rate.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<footer id="contact" class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <div class="brand">
+        <span class="brand-mark">A</span>
+        <div class="brand-text">
+          <strong>Aparanji</strong>
+          <small>Your Gold Coin Partner</small>
+        </div>
+      </div>
+      <p class="footer-note">Terms &amp; conditions apply. Gold rates are indicative and subject to change; the rate applied to a purchase is the published rate at the time of execution. Digital gold is an unregulated product — invest responsibly.</p>
+    </div>
+    <div>
+      <h4>Talk to us</h4>
+      <p>Questions before investing? Submit the form above and our team will call you back within 24 hours.</p>
+    </div>
+  </div>
+  <div class="container footer-bottom">
+    <span>&copy; <span id="year"></span> Valanka Private Limited. Aparanji is a brand of Valanka Private Limited. All rights reserved.</span>
+  </div>
+</footer>
+
+<script src="chart.js"></script>
+<script src="app.js"></script>
+<script src="coins.js"></script>
+</body>
+</html>

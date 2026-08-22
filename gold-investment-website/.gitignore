@@ -1,0 +1,8 @@
+node_modules/
+data/leads.json
+data/customers.json
+data/uploads/
+data/receipts/
+data/invoices/
+data/acks/
+.env

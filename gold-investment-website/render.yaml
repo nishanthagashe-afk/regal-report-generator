@@ -1,0 +1,40 @@
+# Render Blueprint — one-click deploy for Aparanji.
+# In Render: New → Blueprint → connect this repo. Then set the secret env vars
+# marked sync:false (SESSION_SECRET, ADMIN_KEY, and any OTP provider keys).
+services:
+  - type: web
+    name: aparanji
+    runtime: node
+    plan: starter          # starter or higher — needed for a persistent disk
+    rootDir: gold-investment-website
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /data
+      - key: SESSION_SECRET
+        generateValue: true   # Render generates a strong secret
+      - key: ADMIN_KEY
+        sync: false           # set your own in the dashboard
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: SMS_GATEWAY_URL
+        sync: false
+      - key: SMS_API_KEY
+        sync: false
+    disk:
+      name: aparanji-data
+      mountPath: /data        # matches DATA_DIR — persists customer records/PDFs
+      sizeGB: 1

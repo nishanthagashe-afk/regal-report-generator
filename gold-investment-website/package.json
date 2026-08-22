@@ -1,0 +1,20 @@
+{
+  "name": "aparanji-digital-gold",
+  "version": "1.0.0",
+  "description": "Aparanji — digital gold investment website. Invest in 24K gold from ₹100 at the live rate.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^9.0.3",
+    "pdfkit": "^0.19.1",
+    "qrcode": "^1.5.4",
+    "undici": "^6.19.0"
+  }
+}

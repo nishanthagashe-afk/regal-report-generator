@@ -1,0 +1,89 @@
+{
+  "_rateNote": "goldRatePerGram24K is the JAB (jab.org.in) published 24K rate, used only when the live scrape is unavailable. Staff should update it and updatedOn from the JAB site.",
+  "goldRatePerGram24K": 14329,
+  "updatedOn": "2026-07-21",
+  "minPurchaseAmount": 100,
+  "gstPercent": 3,
+  "lockInMonths": 11,
+  "makingChargePercent": 1,
+  "purity": "24K 999",
+  "payment": {
+    "bankName": "Federal Bank",
+    "accountNumber": "13340200113079",
+    "accountName": "VALANKA PRIVATE LIMITED",
+    "branch": "Bangalore / Rajaji Nagar",
+    "ifsc": "FDRL0001334",
+    "mmid": "9049079",
+    "vpa": "valanka@federal"
+  },
+  "_companyNote": "Fill the blank legal fields (registeredOffice, cin, gstin, contactEmail, contactPhone, grievanceOfficer) from your incorporation and GST records — the About section only shows fields that are filled in.",
+  "company": {
+    "legalName": "Valanka Private Limited",
+    "brand": "Aparanji",
+    "tagline": "Your Gold Coin Partner",
+    "intro": "Aparanji is the digital gold brand of Valanka Private Limited. We make gold ownership simple, transparent and accessible — letting anyone build a holding of pure 24K gold from as little as ₹100, at the published Jewellers' Association Bangalore rate.",
+    "what": "We accept investment exclusively toward digital gold purchase. Every rupee you invest is converted to 24K 999-purity gold at the live rate and held against your KYC-verified account. After the scheme term, redeem your accumulated gold as coins or withdraw its value to your bank — your gold, your choice.",
+    "commitment": "Transparency is our promise: one published rate for everyone, GST shown on every purchase, a receipt for every deposit, and an invoice at redemption. Your holdings and KYC details are yours alone, protected and never mixed with anyone else's.",
+    "values": [
+      { "title": "Transparent pricing", "description": "One JAB-published rate for all customers, with GST and charges shown up front — no hidden spread." },
+      { "title": "Real, allocated gold", "description": "Every purchase is 24K 999 gold recorded against your individual account, redeemable as coins or cash." },
+      { "title": "KYC-secured accounts", "description": "Aadhaar- and PAN-verified accounts with OTP login keep every customer's holding separate and safe." }
+    ],
+    "cityState": "Bengaluru, Karnataka, India",
+    "registeredOffice": "",
+    "cin": "",
+    "gstin": "",
+    "contactEmail": "",
+    "contactPhone": "",
+    "grievanceOfficer": ""
+  },
+  "whyGold": [
+    {
+      "title": "A hedge against inflation",
+      "description": "When prices rise, the rupee buys less — but gold has historically held its purchasing power. Money parked in gold tends to keep pace with the cost of living in a way idle cash cannot."
+    },
+    {
+      "title": "The classic safe haven",
+      "description": "In times of market turmoil, currency weakness, or global uncertainty, investors move to gold. It has held value through wars, recessions, and crashes for centuries."
+    },
+    {
+      "title": "Always liquid",
+      "description": "Gold is one of the most liquid assets in India — instantly understood, easily valued, and convertible into cash, coins, or jewellery in any town, at any time."
+    },
+    {
+      "title": "True diversification",
+      "description": "Gold often moves differently from shares, mutual funds, and fixed deposits. A gold allocation cushions your overall savings when other investments dip."
+    },
+    {
+      "title": "Part of every Indian milestone",
+      "description": "Weddings, births, festivals — gold is the one asset that is also a gift, an heirloom, and a tradition. What you accumulate today becomes tomorrow's celebration."
+    },
+    {
+      "title": "Effortless in digital form",
+      "description": "No lockers, no purity worries, no minimum of a full coin. Digital gold lets you build your holding from ₹100 at a time, secured against your account until you redeem."
+    }
+  ],
+  "features": [
+    {
+      "title": "Start from just ₹100",
+      "description": "Buy 24K digital gold in fractional grams — no minimum grams, no fixed schedule. Invest any amount, any day. 3% GST applies on the purchase value."
+    },
+    {
+      "title": "Live market rate",
+      "description": "Every purchase is executed at the day's published gold rate, so you always know exactly how many grams you own."
+    },
+    {
+      "title": "Secured in your account",
+      "description": "Your gold balance is recorded against your KYC-verified account — track your invested amount, purchase rate, and current value any time."
+    },
+    {
+      "title": "Redeem coins or withdraw cash",
+      "description": "After 11 months, redeem your accumulated gold as gold coins (1% making charge at closure) — or, if you prefer not to take coins, withdraw the equivalent value in money."
+    }
+  ],
+  "steps": [
+    { "step": 1, "title": "Create your account", "description": "Complete KYC with your Aadhaar, PAN, email and mobile number. Our team verifies and activates your account within 24 hours." },
+    { "step": 2, "title": "Invest", "description": "Buy any amount from ₹100 upward, plus 3% GST. Your grams are credited at the day's rate." },
+    { "step": 3, "title": "Redeem after 11 months", "description": "Track your holdings in your dashboard. After 11 months, close the scheme and redeem as gold coins (1% making charge) or withdraw the equivalent value in money." }
+  ]
+}
