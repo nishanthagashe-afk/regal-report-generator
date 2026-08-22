@@ -5,3 +5,4 @@ data/uploads/
 data/receipts/
 data/invoices/
 data/acks/
+.env

@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+data/customers.json
+data/leads.json
+data/uploads
+data/receipts
+data/invoices
+data/acks
+.env
+.git

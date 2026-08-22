@@ -17,7 +17,9 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const DATA_DIR = path.join(__dirname, "data");
+// DATA_DIR can point at a mounted persistent disk in production so customer
+// records, KYC uploads and generated PDFs survive redeploys.
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const CONFIG_PATH = path.join(DATA_DIR, "config.json");
 const CUSTOMERS_PATH = path.join(DATA_DIR, "customers.json");
 const RATE_HISTORY_PATH = path.join(DATA_DIR, "rate-history.json");
@@ -31,8 +33,22 @@ fs.mkdirSync(RECEIPTS_DIR, { recursive: true });
 fs.mkdirSync(INVOICES_DIR, { recursive: true });
 fs.mkdirSync(ACKS_DIR, { recursive: true });
 
+// When DATA_DIR is an external/persistent disk, seed the config and rate
+// history from the versions bundled in the repo if they are not there yet.
+for (const f of ["config.json", "rate-history.json"]) {
+  const target = path.join(DATA_DIR, f);
+  const bundled = path.join(__dirname, "data", f);
+  if (!fs.existsSync(target) && fs.existsSync(bundled) && bundled !== target) {
+    fs.copyFileSync(bundled, target);
+  }
+}
+
 // Tokens are signed with this secret; set SESSION_SECRET in production so
-// logins survive restarts.
+// logins survive restarts. In production the secret MUST be provided.
+if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
+  console.error("FATAL: SESSION_SECRET must be set in production.");
+  process.exit(1);
+}
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
